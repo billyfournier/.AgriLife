@@ -1,0 +1,381 @@
+#!/bin/bash
+
+
+
+## BE SURE to update 1, 2 , 3, 4 below and ensure they are correct.
+
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#1# 	PATH to the Raw Data you are analysing on the Storage drive  
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+DATASTORAGEDIR=/media/jeff/STORAGE/DATA_SETS/Painter
+
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#2# 	PATH to "your" Analysis director EXAMPLE: $HOME/Analysis/YourName
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+WORKDIR=$HOME/Analysis/JeffBrady
+
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#3# 	PATH to Project directory EXAMPLE: $WORKDIR/DataSetName_TodaysDate
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+PROJECTDIR=$WORKDIR/Painter_2_4_2015
+
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#4#  	PATH to Drive5 scripts
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~
+DRIVE5STORAGE=/media/jeff/STORAGE/drive5
+
+
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+
+
+#PATH to Raw Data
+DATADIR=$PROJECTDIR/DATA
+#PATH to Usearch Output
+USEARCHDIR=$PROJECTDIR/Usearch_Output
+DRIVE5DIR=$PROJECTDIR/Drive5
+
+mkdir $WORKDIR
+mkdir $PROJECTDIR
+mkdir $DATADIR
+mkdir $USEARCHDIR
+mkdir $DRIVE5DIR
+
+####  PIPLELINE LOG file setup  ####
+LOGFILE="$PROJECTDIR/pipeline.log"
+touch $LOGFILE
+exec >  >(tee $LOGFILE)
+exec 2>&1
+echo Log Start
+
+
+find $DRIVE5STORAGE -type f -name 'fasta_number.py' -exec cp {} $DRIVE5DIR/ \;
+find $DRIVE5STORAGE -type f -name 'die.py' -exec cp {} $DRIVE5DIR/ \;
+find $DRIVE5STORAGE -type f -name 'uc2otutab_mod.py' -exec cp {} $DRIVE5DIR/ \;
+find $DRIVE5STORAGE -type f -name 'uc.py' -exec cp {} $DRIVE5DIR/ \;
+find $DRIVE5STORAGE -type f -name 'progress.py' -exec cp {} $DRIVE5DIR/ \;
+find $DRIVE5STORAGE -type f -name 'fasta.py' -exec cp {} $DRIVE5DIR/ \;
+ 
+
+
+# Finding gold.fasta
+
+if [ "$(find /opt -type f -name '*gold.fasta*')" ]; then
+	echo ''    
+	echo "gold.fasta has been found."
+	GOLDFASTA=`find /opt -type f -name '*gold.fasta*'`
+	echo "gold.fasta is located at $GOLDFASTA"
+	echo ''
+
+elif [ "$(find /home -type f -name '*gold.fasta*')" ]; then
+	echo ''
+	echo 'gold.fasta has been found in the /home directory'
+	GOLDFASTA=`find /opt -type f -name '*gold.fasta*'`
+	echo "gold.fasta is located at $GOLDFASTA"
+	echo ''
+else    
+	echo -e "\n++++++++ WARNING: gold.fasta not found. ++++++++++++"
+	echo 'Press Cntl + Z to exit and add the gold.fasta file anywhere in the /opt folder'	
+fi
+
+printf '\n\n'
+sleep 1
+
+
+################################################
+# Copying index1 to the working data directory #
+################################################
+if [ "$(find $DATADIR -type f -name '*index1*')" ]; then
+	echo ''    
+	echo "***WARNING: index1 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -type f -name '*_I1_*' -exec cp {} $DATADIR/index1.fastq.gz \;
+	echo ''    
+	echo "index1 has been copied to $DATADIR"
+fi
+sleep 1
+
+################################################
+# Copying index2 to the working data directory #
+################################################
+if [ "$(find $DATADIR -type f -name '*index2*')" ]; then
+	echo ''    
+	echo "***WARNING: index2 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -type f -name '*_I2_*' -exec cp {} $DATADIR/index2.fastq.gz \;
+	echo ''    
+	echo "index2 has been copied to $DATADIR"
+fi
+sleep 1
+
+###############################################
+# Copying read1 to the working data directory #
+###############################################
+if [ "$(find $DATADIR -type f -name '*read1*')" ]; then
+	echo ''    
+	echo "***WARNING: read1 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -type f -name '*_R1_*' -exec cp {} $DATADIR/read1.fastq.gz \;
+	echo ''    
+	echo "read1 has been copied to $DATADIR"
+fi
+sleep 1
+
+###############################################
+# Copying read2 to the working data directory #
+###############################################
+if [ "$(find $DATADIR -type f -name '*read2*')" ]; then
+	echo ''    
+	echo "***WARNING: read2 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -type f -name '*_R2_*' -exec cp {} $DATADIR/read2.fastq.gz \;
+	echo ''    
+	echo "read2 has been copied to $DATADIR"
+fi
+sleep 1
+
+##########################################################
+# Copying the mapping file to the working data directory #
+##########################################################
+if [ "$(find $DATADIR -type f -iname '*mapping*')" ]; then
+	echo ''  
+	MAPPINGFILE=`find $DATADIR -type f -iname '*mapping*'`  
+	echo "***WARNING: Mapping File has already been copied to $MAPPINGFILE"
+else	
+	find $DATASTORAGEDIR -type f -iname '*mapping*' -exec cp {} $DATADIR/ \;
+	MAPPINGFILE=`find $DATADIR -type f -iname '*mapping*'`
+	echo ''    
+	echo "Mapping File has been copied to $MAPPINGFILE"
+fi
+sleep 1
+
+#########################################################
+# Copying the primer file to the working data directory #
+#########################################################
+if [ "$(find $DATADIR -type f -iname '*primer*')" ]; then
+	echo ''  
+	PRIMERFILE=`find $DATADIR -type f -iname '*primer*'`  
+	echo "***WARNING: Primer File has already been copied to $PRIMERFILE"
+else	
+	find $DATASTORAGEDIR -type f -iname '*primer*' -exec cp {} $DATADIR/ \;
+	PRIMERFILE=`find $DATADIR -type f -iname '*primer*'`
+	echo ''    
+	echo "Primer File has been copied to $PRIMERFILE"
+fi
+sleep 1
+
+##########################################################
+# Copying the adaptor file to the working data directory #
+##########################################################
+if [ "$(find $DATADIR -type f -iname '*adaptor*')" ]; then
+	echo ''  
+	ADAPTORFILE=`find $DATADIR -type f -iname '*adaptor*'`  
+	echo "***WARNING: Adaptor File has already been copied to $ADAPTORFILE"
+else	
+	find $DATASTORAGEDIR -type f -iname '*adaptor*' -exec cp {} $DATADIR/ \;
+	ADAPTORFILE=`find $DATADIR -type f -iname '*adaptor*'`
+	echo ''    
+	echo "Adaptor File has been copied to $ADAPTORFILE"
+fi
+sleep 1
+#############################################################
+#############################################################
+#############################################################
+#############################################################
+
+<< COMMENT
+COMMENT
+
+
+echo ''
+echo "Unzipping files in *** $DATADIR ***"
+gunzip $DATADIR/index1.fastq.gz
+echo "gunzip 1 of 4 COMPLETE"
+gunzip $DATADIR/index2.fastq.gz
+echo "gunzip 2 of 4 COMPLETE"
+gunzip $DATADIR/read1.fastq.gz
+echo "gunzip 3 of 4 COMPLETE"
+gunzip $DATADIR/read2.fastq.gz
+echo "gunzip 4 of 4 COMPLETE"
+
+
+
+echo -e '\n--------------------------- Step 1 ---------------------------'
+echo -e '\nExtracting Barcodes (BASELINE TIME: real 3m51.680s)'
+time extract_barcodes.py -f $DATADIR/index2.fastq -r $DATADIR/index1.fastq -c barcode_paired_end --bc1_len 6 --bc2_len 6 -o $PROJECTDIR/barcodes --rev_comp_bc2
+echo -e '\nExtracting Barcodes COMPLETE'
+
+echo 'Counting Sequences (BASELINE TIME: real 0m48.680s)'
+count_seqs.py -i $PROJECTDIR/barcodes/barcodes.fastq
+
+
+	### Printing top 10 lines of file barcodes.fastq.
+echo ''
+head -n 10 $PROJECTDIR/barcodes/barcodes.fastq #@M00934:3:000000000
+printf "Head complete\n\n"
+
+
+	### SteamEditor replacing pattern 2:N:0:1 with pattern 1:N:0:1 in barcordes.fastq
+echo -e '\n--------------------------- Step 2 ---------------------------'
+echo 'Stream editor replacing patterns in barcodes.fastq (BASELINE TIME: 1m44.924s)'
+time sed -i 's/2:N:0:1/1:N:0:1/g' $PROJECTDIR/barcodes/barcodes.fastq
+echo "sed COMPLETE"
+
+
+	### Checking the numbers of forward and reverse reads.
+echo -e '\nCounting sequences of read1.fastq (BASELINE TIME: real 0m48.680s)'
+time count_seqs.py -i $DATADIR/read1.fastq
+
+echo -e '\nCounting sequences of read2.fastq (BASELINE TIME: real 0m48.680s)'
+time count_seqs.py -i $DATADIR/read2.fastq
+
+
+#throwing out anything with less than 25 base pairs of overlap= -j
+#**generally about 135 maximum basepair overlap 
+#**PCR amplicon length is 465 basepairs long
+  #between 1-100% we chose 50% to represent the maximum difference of forward and reverse reads
+  #** higher%= fewer joined reads, lower%= more joined reads
+  #** looking for quality reads of joined pairs
+
+
+echo -e '\n--------------------------- Step 3 ---------------------------'
+echo -e 'Joining paired end reads   (BASELINE TIME: real	15m41.506s)'
+date +%r
+time join_paired_ends.py -f $DATADIR/read1.fastq -r $DATADIR/read2.fastq -o $PROJECTDIR/JoinedSeqs/fastq-join_joined -b $PROJECTDIR/barcodes/barcodes.fastq -p 50 -j 25
+echo 'Joining Paired Ends --COMPLETE--'
+
+echo 'count_seqs.py Starting'
+#Check the numbers of what's left after joining:
+time count_seqs.py -i $PROJECTDIR/JoinedSeqs/fastq-join_joined/fastqjoin.join.fastq
+time count_seqs.py -i $PROJECTDIR/JoinedSeqs/fastq-join_joined/fastqjoin.join_barcodes.fastq
+
+
+
+
+
+#Extracting F primer
+echo -e '\n--------------------------- Step 4 ---------------------------'
+echo -e 'Extracting F primer (BASELINE TIME: 	real 3m51.680s)'
+date +%r
+time extract_barcodes.py -f $PROJECTDIR/JoinedSeqs/fastq-join_joined/fastqjoin.join.fastq -c barcode_single_end --bc1_len 15 -m $PRIMERFILE -o $PROJECTDIR/StrippedFPrimer
+echo ''
+echo "Extracting Forward Primers COMPLETE"
+
+#Check the numbers of what's left after joining:
+time count_seqs.py -i $PROJECTDIR/JoinedSeqs/fastq-join_joined/fastqjoin.join.fastq
+echo ''
+time count_seqs.py -i $PROJECTDIR/StrippedFPrimer/reads.fastq
+
+#Extracting Adaptors
+echo -e '\n--------------------------- Step 5 ---------------------------'
+echo -e 'Extracting Adaptors (BASELINE TIME: 	real 3m51.680s)'
+date +%r
+time extract_barcodes.py -f $PROJECTDIR/StrippedFPrimer/reads.fastq -c barcode_single_end --bc1_len 19 -m $ADAPTORFILE -o $PROJECTDIR/StrippedFPrimerAdaptor
+echo ''
+echo "Extracting Adaptors COMPLETE"
+
+#Check the numbers of what's left after joining:
+time count_seqs.py -i $PROJECTDIR/JoinedSeqs/fastq-join_joined/fastqjoin.join.fastq
+echo ''
+time count_seqs.py -i $PROJECTDIR/StrippedFPrimerAdaptor/reads.fastq
+
+# requires JoinedSeqs Folder & a Mapping.txt
+# Baseline Time (REAL: 22m54.634s)  
+echo -e '\n--------------------------- STEP #6 ---------------------------n'
+echo "Splitting Libraries (Baseline Time:	real 22m54.634s)"
+date +%r
+time split_libraries_fastq.py -v -q 0 --store_demultiplexed_fastq -m $MAPPINGFILE --barcode_type 12 -b $PROJECTDIR/JoinedSeqs/fastq-join_joined/fastqjoin.join_barcodes.fastq -i $PROJECTDIR/JoinedSeqs/fastq-join_joined/fastqjoin.join.fastq -o $PROJECTDIR/sl_out
+
+
+
+# Baseline Time (REAL: )
+echo -e '\n----------- STEP #7 -----------'
+usearch -fastq_stats $PROJECTDIR/sl_out/seqs.fastq -log $USEARCHDIR/seqs.stats.log
+
+
+
+
+# Baseline Time (REAL: 2m24.498s)
+echo -e '\n----------- STEP #8 -----------'
+echo -e 'Baseline Time (REAL: 2m24.498s)\n'
+usearch -fastq_filter $PROJECTDIR/sl_out/seqs.fastq -fastaout $USEARCHDIR/seqs.filtered.fasta -fastq_maxee 0.5 -threads 12
+
+
+echo -e '\n--------------------------- STEP #9 ---------------------------'
+echo 'truncate_reverse_primer.py  (Baseline Time:	real 46m54.634s)'
+time truncate_reverse_primer.py -f $USEARCHDIR/seqs.filtered.fasta -m $MAPPINGFILE -o $USEARCHDIR/noPrimer
+
+time count_seqs.py -i $USEARCHDIR/noPrimer/seqs.filteredsta_rev_primer_truncated.fna
+
+
+
+# Baseline Time (REAL: 0m53.254s)
+echo -e '\n----------- STEP #10 -----------'
+usearch -derep_fulllength $USEARCHDIR/seqs.filtered.fasta  -output $USEARCHDIR/seqs.filtered.derep.fasta -sizeout #-threads 12
+echo ''
+
+
+echo '----------- STEP #11 -----------'
+# Baseline Time (REAL: 0m8.081s)
+usearch -sortbysize $USEARCHDIR/seqs.filtered.derep.fasta -minsize 2 -output $USEARCHDIR/seqs.filtered.derep.mc2.fasta
+echo ''
+
+
+
+echo '----------- STEP #12 -----------'
+echo 'Baseline Time (REAL: 31m51.569s)'
+date +%r
+usearch -cluster_otus $USEARCHDIR/seqs.filtered.derep.mc2.fasta -uparse_break -999 -otus $USEARCHDIR/seqs.filtered.derep.mc2.repset.fasta
+
+
+
+# Baseline Time (REAL: real	0m39.119s)
+echo '----------- STEP #11 -----------'
+usearch -uchime_ref $USEARCHDIR/seqs.filtered.derep.mc2.repset.fasta -db $GOLDFASTA -strand plus -nonchimeras $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.fasta -threads 12
+
+
+
+echo -e'\n----------- STEP #13 -----------'
+echo 'fasta_number.py'
+# needs fasta_number.py & die.py
+# Baseline Time (REAL: real	0m0.536s)
+time python $DRIVE5DIR/fasta_number.py $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.fasta OTU_ > $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTUs.fasta
+
+
+
+echo '----------- STEP #14 -----------'
+echo 'Baseline Time (REAL: 6m33.375s)'
+usearch -usearch_global $USEARCHDIR/seqs.filtered.fasta -db $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTUs.fasta -strand plus -id 0.97 -uc $USEARCHDIR/otu.map.uc -threads 12
+
+
+
+# Baseline Time (REAL: 	7m34.057s)
+#needs uc2otutab_mod, uc, progress, fasta
+echo -e '/n----------- STEP #15 -----------'
+echo 'uc2otutab_mod.py 		Baseline Time (REAL: 	7m34.057s)'
+date +%r
+time python $DRIVE5DIR/uc2otutab_mod.py $USEARCHDIR/otu.map.uc > $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTU-table.txt
+
+
+
+# Baseline Time (REAL: 0m39.764s)
+echo -e '\n----------- STEP #16 -----------'
+time biom convert --table-type="otu table" -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTU-table.txt -o $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTU-table.biom
+
+
+
+# Memory intensive (Will Most likely use all the memory you can throw at it)
+echo -e '\n----------- STEP #17 -----------'
+echo 'Baseline Time (REAL: 7m23.578s)'
+date +%r
+time parallel_assign_taxonomy_rdp.py -v --rdp_max_memory 4000 -O 8 -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTUs.fasta -o $PROJECTDIR/assigned_taxonomy
+
+
+
+# Baseline Time (REAL: 0m16.053s)
+echo -e '\n----------- STEP #18 -----------'
+time biom add-metadata --sc-separated taxonomy --observation-header OTUID,taxonomy --observation-metadata-fp $PROJECTDIR/assigned_taxonomy/seqs.filtered.derep.mc2.repset.nochimeras.OTUs_tax_assignments.txt -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTU-table.biom -o $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom
+
+
