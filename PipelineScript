@@ -1,26 +1,38 @@
 #!/bin/bash
 
-fff
 
 
-####
+read -p "Enter Data Sets Name (Folder in DATA_SETS): " DATASET_NAME
+echo ''
+
+read -p "Enter Your Name, i.e. JeffBrady: " MY_NAME
+MY_NAME=${MY_NAME:-JeffBrady}
+echo ''
+
+read -p "Press ENTER to Recieve a DEFAULT Project Name:  " PROJECT_NAME
+DATE=`date +%d`.`date +%m`.`date +%Y`
+PROJECT_NAME=${PROJECT_NAME:-$DATASET_NAME.$DATE}
+echo $PROJECT_NAME
+
+<< COMMENT
 
 ## BE SURE to update 1, 2 , 3, 4 below and ensure they are correct.
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #1# 	PATH to the Raw Data you are analysing on the Storage drive  
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DATASTORAGEDIR=/media/jeff/STORAGE/DATA_SETS/Painter
+DATASTORAGEDIR=/media/jeff/STORAGE/DATA_SETS/$DATASET_NAME
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #2# 	PATH to "your" Analysis director EXAMPLE: $HOME/Analysis/YourName
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-WORKDIR=$HOME/Analysis/JeffBrady
+WORKDIR=$HOME/Analysis/$MY_NAME
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #3# 	PATH to Project directory EXAMPLE: $WORKDIR/DataSetName_TodaysDate
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-PROJECTDIR=$WORKDIR/Painter_2_4_2015
+PROJECTDIR=$WORKDIR/$PROJECT_NAME
+
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #4#  	PATH to Drive5 scripts
@@ -188,8 +200,6 @@ sleep 1
 #############################################################
 #############################################################
 
-<< COMMENT
-COMMENT
 
 
 echo ''
@@ -382,3 +392,5 @@ echo -e '\n----------- STEP #18 -----------'
 time biom add-metadata --sc-separated taxonomy --observation-header OTUID,taxonomy --observation-metadata-fp $PROJECTDIR/assigned_taxonomy/seqs.filtered.derep.mc2.repset.nochimeras.OTUs_tax_assignments.txt -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTU-table.biom -o $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom
 
 
+
+COMMENT
