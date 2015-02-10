@@ -15,7 +15,7 @@ DATE=`date +%d`.`date +%m`.`date +%Y`
 PROJECT_NAME=${PROJECT_NAME:-$DATASET_NAME.$DATE}
 echo $PROJECT_NAME
 
-<< COMMENT
+
 
 =======
 >>>>>>> origin
@@ -411,6 +411,6 @@ time parallel_assign_taxonomy_rdp.py -v --rdp_max_memory 4000 -O 8 -i $USEARCHDI
 echo -e '\n----------- STEP #18 -----------'
 time biom add-metadata --sc-separated taxonomy --observation-header OTUID,taxonomy --observation-metadata-fp $PROJECTDIR/assigned_taxonomy/seqs.filtered.derep.mc2.repset.nochimeras.OTUs_tax_assignments.txt -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTU-table.biom -o $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom
 
-
+<< COMMENT
 COMMENT
 
