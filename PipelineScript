@@ -2,6 +2,7 @@
 
 
 
+<<<<<<< HEAD
 read -p "Enter Data Sets Name (Folder in DATA_SETS): " DATASET_NAME
 echo ''
 
@@ -16,23 +17,37 @@ echo $PROJECT_NAME
 
 << COMMENT
 
+=======
+>>>>>>> origin
 ## BE SURE to update 1, 2 , 3, 4 below and ensure they are correct.
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #1# 	PATH to the Raw Data you are analysing on the Storage drive  
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+<<<<<<< HEAD
 DATASTORAGEDIR=/media/jeff/STORAGE/DATA_SETS/$DATASET_NAME
+=======
+DATASTORAGEDIR=/media/jeff/STORAGE/DATA_SETS/Painter
+>>>>>>> origin
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #2# 	PATH to "your" Analysis director EXAMPLE: $HOME/Analysis/YourName
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+<<<<<<< HEAD
 WORKDIR=$HOME/Analysis/$MY_NAME
+=======
+WORKDIR=$HOME/Analysis/JeffBrady
+>>>>>>> origin
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #3# 	PATH to Project directory EXAMPLE: $WORKDIR/DataSetName_TodaysDate
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+<<<<<<< HEAD
 PROJECTDIR=$WORKDIR/$PROJECT_NAME
 
+=======
+PROJECTDIR=$WORKDIR/Painter_2_4_2015
+>>>>>>> origin
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #4#  	PATH to Drive5 scripts
@@ -200,6 +215,11 @@ sleep 1
 #############################################################
 #############################################################
 
+<<<<<<< HEAD
+=======
+<< COMMENT
+COMMENT
+>>>>>>> origin
 
 
 echo ''
@@ -392,5 +412,5 @@ echo -e '\n----------- STEP #18 -----------'
 time biom add-metadata --sc-separated taxonomy --observation-header OTUID,taxonomy --observation-metadata-fp $PROJECTDIR/assigned_taxonomy/seqs.filtered.derep.mc2.repset.nochimeras.OTUs_tax_assignments.txt -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTU-table.biom -o $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom
 
 
-
 COMMENT
+
