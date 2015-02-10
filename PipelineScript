@@ -431,6 +431,7 @@ echo '##########################################################################
 echo "##################               Analyst's Attention is Required               ##################"
 echo '#################################################################################################'
 echo -e '\n**** Analyst must review the bacstats.txt file and determin the appropriate rarefaction level.'
+echo "**** bacstats.txt can be found at $PROJECTDIR/bacstats.txt"
 echo -e '**** Once the rarefaction level is determined enter the value below.\n'
 
 read -p "Enter Rarefaction Value Here: " RAREFACTION_VALUE
