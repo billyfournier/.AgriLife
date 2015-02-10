@@ -1,6 +1,9 @@
 #!/bin/bash
 
 
+<< COMMENT_READIN
+
+
 read -p "Enter Data Sets Name (Folder in DATA_SETS): " DATASET_NAME
 echo ''
 
@@ -13,24 +16,28 @@ DATE=`date +%d`.`date +%m`.`date +%Y`
 PROJECT_NAME=${PROJECT_NAME:-$DATASET_NAME.$DATE}
 echo $PROJECT_NAME
 
-
+COMMENT_READIN
 
 ## BE SURE to update 1, 2 , 3, 4 below and ensure they are correct.
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #1# 	PATH to the Raw Data you are analysing on the Storage drive  
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DATASTORAGEDIR=/media/jeff/STORAGE/DATA_SETS/$DATASET_NAME
+DATASTORAGEDIR=/media/jeff/STORAGE/DATA_SETS/Painter
+#DATASTORAGEDIR=/media/jeff/STORAGE/DATA_SETS/$DATASET_NAME
+
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #2# 	PATH to "your" Analysis director EXAMPLE: $HOME/Analysis/YourName
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-WORKDIR=$HOME/Analysis/$MY_NAME
+WORKDIR=$HOME/Analysis/JeffBrady
+#WORKDIR=$HOME/Analysis/$MY_NAME
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #3# 	PATH to Project directory EXAMPLE: $WORKDIR/DataSetName_TodaysDate
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-PROJECTDIR=$WORKDIR/$PROJECT_NAME
+PROJECTDIR=$WORKDIR/Painter_2_4_2015
+#PROJECTDIR=$WORKDIR/$PROJECT_NAME
 
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -50,6 +57,9 @@ DATADIR=$PROJECTDIR/DATA
 #PATH to Usearch Output
 USEARCHDIR=$PROJECTDIR/Usearch_Output
 DRIVE5DIR=$PROJECTDIR/Drive5
+
+
+
 
 mkdir $WORKDIR
 mkdir $PROJECTDIR
@@ -199,9 +209,6 @@ sleep 1
 #############################################################
 #############################################################
 
-<< COMMENT
-COMMENT
-
 
 echo ''
 echo "Unzipping files in *** $DATADIR ***"
@@ -215,6 +222,8 @@ gunzip $DATADIR/read2.fastq.gz
 echo "gunzip 4 of 4 COMPLETE"
 
 
+<< COMMENT
+COMMENT
 
 echo -e '\n--------------------------- Step 1 ---------------------------'
 echo -e '\nExtracting Barcodes (BASELINE TIME: real 3m51.680s)'
@@ -392,6 +401,44 @@ time parallel_assign_taxonomy_rdp.py -v --rdp_max_memory 4000 -O 8 -i $USEARCHDI
 echo -e '\n----------- STEP #18 -----------'
 time biom add-metadata --sc-separated taxonomy --observation-header OTUID,taxonomy --observation-metadata-fp $PROJECTDIR/assigned_taxonomy/seqs.filtered.derep.mc2.repset.nochimeras.OTUs_tax_assignments.txt -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTU-table.biom -o $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom
 
-<< COMMENT
-COMMENT
+
+
+
+echo -e '\n--------------------------- STEP #19 ---------------------------'
+echo 'Baseline Time (real	0m51.385s)'
+echo 'parallel_align_seqs_pynast.py now running...'
+time parallel_align_seqs_pynast.py -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTUs.fasta -t /opt/qiime_software/core_set_aligned.fasta.imputed -o $PROJECTDIR/pynast_aligned_defaults -O 8
+
+
+echo -e '\n--------------------------- STEP #20 ---------------------------'
+echo 'Baseline Time (real	0m0.538s)'
+echo 'filter_alignment.py now running ...'
+time filter_alignment.py -i $PROJECTDIR/pynast_aligned_defaults/seqs.filtered.derep.mc2.repset.nochimeras.OTUs_aligned.fasta -m /opt/qiime_software/lanemask_in_1s_and_0s -o $PROJECTDIR/pynast_aligned_defaults/filtered_alignments
+
+echo -e '\n--------------------------- STEP #21 ---------------------------'
+echo 'Baseline Time (real	0m52.461s)'
+echo 'make_phylogeny.py now running ...'
+time make_phylogeny.py -i $PROJECTDIR/pynast_aligned_defaults/filtered_alignments/seqs.filtered.derep.mc2.repset.nochimeras.OTUs_aligned_pfiltered.fasta -o $PROJECTDIR/rep_set.tre
+
+
+
+echo -e '\n--------------------------- STEP #22 ---------------------------'
+echo 'Baseline Time (real	0m0.189s)'
+echo 'biom summarize-table now running ...'
+time biom summarize-table -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom -o $PROJECTDIR/bacstats.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
