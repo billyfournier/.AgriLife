@@ -17,6 +17,8 @@ echo $PROJECT_NAME
 
 COMMENT_READIN
 
+
+
 ## BE SURE to update 1, 2 , 3, 4 below and ensure they are correct.
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -222,7 +224,8 @@ echo "gunzip 4 of 4 COMPLETE"
 
 
 << COMMENT
-COMMENT
+# This is the timer for Part 1 of this script.
+time {
 
 echo -e '\n--------------------------- Step 1 ---------------------------'
 echo -e '\nExtracting Barcodes (BASELINE TIME: real 3m51.680s)'
@@ -424,7 +427,12 @@ echo 'Baseline Time (real	0m0.189s)'
 echo 'biom summarize-table now running ...'
 time biom summarize-table -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom -o $PROJECTDIR/bacstats.txt
 
+# This is the end of the Timer for Part 1 of this script.
+echo -e '\n\n *** The Following Timestamp is for the script up to this point. ***'
+date +%r
+}
 
+COMMENT
 
 echo -e '\n\n'
 echo '#################################################################################################'
@@ -436,6 +444,46 @@ echo -e '**** Once the rarefaction level is determined enter the value below.\n'
 
 read -p "Enter Rarefaction Value Here: " RAREFACTION_VALUE
 
-<< COMMENT
-COMMENT
+A=`expr $RAREFACTION_VALUE - 10`
+STEPVALUE=`expr $A / 10`
+echo "STEPVALUE is: $STEPVALUE"
+
+
+echo -e '\n--------------------------- STEP #2-1 ---------------------------'
+echo 'Baseline Time (real	0m0.823s)'
+echo 'filter_samples_from_otu_table.py is now running ...'
+time filter_samples_from_otu_table.py -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom -o $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.reduced.biom -n $RAREFACTION_VALUE
+
+echo -e '\n--------------------------- STEP #2-2 ---------------------------'
+echo 'Baseline Time (real	0m0.189s)'
+echo 'parallel_multiple_rarefactions.py is now running ...'
+time parallel_multiple_rarefactions.py -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom -m 10 -x $RAREFACTION_VALUE -s $STEPVALUE -n 10 -O 8 -o adiv/rarefiedOTUtables 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
