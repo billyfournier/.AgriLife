@@ -475,9 +475,10 @@ echo 'jackknifed_beta_diversity.py is now running ...'
 time jackknifed_beta_diversity.py -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.reduced.biom -t $PROJECTDIR/rep_set.tre -m $MAPPINGFILE -o $PROJECTDIR/jackbdiv -f -e $RAREFACTION_VALUE
 
 
-
-
-
+echo -e '\n--------------------------- STEP #2-6 ---------------------------'
+echo 'Baseline Time (real	0m0.509s)'
+echo 'make_bootstrapped_tree.py is now running ...'
+time make_bootstrapped_tree.py -m $PROJECTDIR/jackbdiv/unweighted_unifrac/upgma_cmp/master_tree.tre -s $PROJECTDIR/jackbdiv/unweighted_unifrac/upgma_cmp/jackknife_support.txt -o $PROJECTDIR/jackbdiv/unweighted_unifrac/upgma_cmp/jackknife_named_nodes.pdf
 
 
 
