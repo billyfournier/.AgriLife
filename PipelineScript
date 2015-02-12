@@ -435,12 +435,12 @@ date +%r
 COMMENT
 
 echo -e '\n\n'
-echo '#################################################################################################'
-echo "##################               Analyst's Attention is Required               ##################"
-echo '#################################################################################################'
-echo -e '\n**** Analyst must review the bacstats.txt file and determin the appropriate rarefaction level.'
+echo '#############################################################'
+echo "#####          Analyst's Attention is Required          #####"
+echo '#############################################################'
+echo -e '\n**** Analyst must review the bacstats.txt file and determin the appropriate rarefaction level.\n'
 echo "**** bacstats.txt can be found at $PROJECTDIR/bacstats.txt"
-echo -e '**** Once the rarefaction level is determined enter the value below.\n'
+echo -e '\n**** Once the rarefaction level is determined enter the value below.\n'
 
 read -p "Enter Rarefaction Value Here: " RAREFACTION_VALUE
 
@@ -455,15 +455,24 @@ echo 'filter_samples_from_otu_table.py is now running ...'
 time filter_samples_from_otu_table.py -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom -o $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.reduced.biom -n $RAREFACTION_VALUE
 
 echo -e '\n--------------------------- STEP #2-2 ---------------------------'
-echo 'Baseline Time (real	1m2.615s)'
+echo 'Baseline Time (real	0m52.645s)'
 echo 'parallel_multiple_rarefactions.py is now running ...'
 time parallel_multiple_rarefactions.py -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom -m 10 -x $RAREFACTION_VALUE -s $STEPVALUE -n 10 -O 8 -o $PROJECTDIR/adiv/rarefiedOTUtables 
 
+echo -e '\n--------------------------- STEP #2-3 ---------------------------'
+echo 'Baseline Time (real	1m2.615s)'
+echo 'parallel_alpha_diversity.py is now running ...'
+time parallel_alpha_diversity.py -i $PROJECTDIR/adiv/rarefiedOTUtables -m chao1,goods_coverage,observed_species,shannon,simpson,PD_whole_tree -o $PROJECTDIR/adiv/adivtables -O 8 -t $PROJECTDIR/rep_set.tre
 
+echo -e '\n--------------------------- STEP #2-4 ---------------------------'
+echo 'Baseline Time (real	0m0.771s)'
+echo 'collate_alpha.py is now running ...'
+time collate_alpha.py -i $PROJECTDIR/adiv/adivtables -o $PROJECTDIR/adiv/collatedalpha
 
-
-
-
+echo -e '\n--------------------------- STEP #2-5 ---------------------------'
+echo 'Baseline Time (real	0m31.285s)'
+echo 'jackknifed_beta_diversity.py is now running ...'
+time jackknifed_beta_diversity.py -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.reduced.biom -t $PROJECTDIR/rep_set.tre -m $MAPPINGFILE -o $PROJECTDIR/jackbdiv -f -e $RAREFACTION_VALUE
 
 
 
