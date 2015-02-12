@@ -457,7 +457,7 @@ time filter_samples_from_otu_table.py -i $USEARCHDIR/seqs.filtered.derep.mc2.rep
 echo -e '\n--------------------------- STEP #2-2 ---------------------------'
 echo 'Baseline Time (real	0m0.189s)'
 echo 'parallel_multiple_rarefactions.py is now running ...'
-time parallel_multiple_rarefactions.py -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom -m 10 -x $RAREFACTION_VALUE -s $STEPVALUE -n 10 -O 8 -o adiv/rarefiedOTUtables 
+time parallel_multiple_rarefactions.py -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom -m 10 -x $RAREFACTION_VALUE -s $STEPVALUE -n 10 -O 8 -o $PROJECTDIR/adiv/rarefiedOTUtables 
 
 
 
