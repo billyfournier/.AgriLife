@@ -1,5 +1,6 @@
 
 # Making a Plot of backstats.txt data
-mydata <- read.table(pipe('tail -n $N bacstats.txt'))
+# NOTE: The Environmental variables must be exported to work here
+mydata <- read.table(pipe("tail -n $N $PROJECTDIR/bacstats.txt"))
 plot(mydata$V2, type='l', main= "bacstats.txt Curve")
 
