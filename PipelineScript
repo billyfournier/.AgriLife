@@ -223,6 +223,8 @@ echo "gunzip 4 of 4 COMPLETE"
 
 
 << COMMENT
+COMMENT
+
 # This is the timer for Part 1 of this script.
 time {
 
@@ -232,20 +234,20 @@ time extract_barcodes.py -f $DATADIR/index2.fastq -r $DATADIR/index1.fastq -c ba
 echo -e '\nExtracting Barcodes COMPLETE'
 
 echo 'Counting Sequences (BASELINE TIME: real 0m48.680s)'
-count_seqs.py -i $PROJECTDIR/barcodes/barcodes.fastq
+time count_seqs.py -i $PROJECTDIR/barcodes/barcodes.fastq
 
 
 	### Printing top 10 lines of file barcodes.fastq.
-echo ''
+echo -e '\nTop 10 lines of the barcodes.fastq for inspection purposes'
 head -n 10 $PROJECTDIR/barcodes/barcodes.fastq #@M00934:3:000000000
-printf "Head complete\n\n"
+echo -e "\n*** Head complete ***\n\n"
 
 
 	### SteamEditor replacing pattern 2:N:0:1 with pattern 1:N:0:1 in barcordes.fastq
 echo -e '\n--------------------------- Step 2 ---------------------------'
 echo 'Stream editor replacing patterns in barcodes.fastq (BASELINE TIME: 1m44.924s)'
 time sed -i 's/2:N:0:1/1:N:0:1/g' $PROJECTDIR/barcodes/barcodes.fastq
-echo "sed COMPLETE"
+echo -e "\n*** sed COMPLETE ***"
 
 
 	### Checking the numbers of forward and reverse reads.
@@ -329,6 +331,7 @@ usearch -fastq_filter $PROJECTDIR/sl_out/seqs.fastq -fastaout $USEARCHDIR/seqs.f
 
 echo -e '\n--------------------------- STEP #9 ---------------------------'
 echo 'truncate_reverse_primer.py  (Baseline Time:	real 46m54.634s)'
+date +%r
 time truncate_reverse_primer.py -f $USEARCHDIR/seqs.filtered.fasta -m $MAPPINGFILE -o $USEARCHDIR/noPrimer
 
 time count_seqs.py -i $USEARCHDIR/noPrimer/seqs.filteredsta_rev_primer_truncated.fna
@@ -361,7 +364,7 @@ usearch -uchime_ref $USEARCHDIR/seqs.filtered.derep.mc2.repset.fasta -db $GOLDFA
 
 
 
-echo -e'\n----------- STEP #13 -----------'
+echo -e '\n\n----------- STEP #12 -----------'
 echo 'fasta_number.py'
 # needs fasta_number.py & die.py
 # Baseline Time (REAL: real	0m0.536s)
@@ -369,7 +372,7 @@ time python $DRIVE5DIR/fasta_number.py $USEARCHDIR/seqs.filtered.derep.mc2.repse
 
 
 
-echo '----------- STEP #14 -----------'
+echo -e '\n\n----------- STEP #13 -----------'
 echo 'Baseline Time (REAL: 6m33.375s)'
 usearch -usearch_global $USEARCHDIR/seqs.filtered.fasta -db $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTUs.fasta -strand plus -id 0.97 -uc $USEARCHDIR/otu.map.uc -threads 12
 
@@ -377,7 +380,7 @@ usearch -usearch_global $USEARCHDIR/seqs.filtered.fasta -db $USEARCHDIR/seqs.fil
 
 # Baseline Time (REAL: 	7m34.057s)
 #needs uc2otutab_mod, uc, progress, fasta
-echo -e '/n----------- STEP #15 -----------'
+echo -e '\n----------- STEP #14 -----------'
 echo 'uc2otutab_mod.py 		Baseline Time (REAL: 	7m34.057s)'
 date +%r
 time python $DRIVE5DIR/uc2otutab_mod.py $USEARCHDIR/otu.map.uc > $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTU-table.txt
@@ -385,13 +388,14 @@ time python $DRIVE5DIR/uc2otutab_mod.py $USEARCHDIR/otu.map.uc > $USEARCHDIR/seq
 
 
 # Baseline Time (REAL: 0m39.764s)
-echo -e '\n----------- STEP #16 -----------'
+echo -e '\n----------- STEP #15 -----------'
+rm -f $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTU-table.biom
 time biom convert --table-type="otu table" -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTU-table.txt -o $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTU-table.biom
 
 
 
 # Memory intensive (Will Most likely use all the memory you can throw at it)
-echo -e '\n----------- STEP #17 -----------'
+echo -e '\n----------- STEP #16 -----------'
 echo 'Baseline Time (REAL: 7m23.578s)'
 date +%r
 time parallel_assign_taxonomy_rdp.py -v --rdp_max_memory 4000 -O 8 -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTUs.fasta -o $PROJECTDIR/assigned_taxonomy
@@ -399,31 +403,33 @@ time parallel_assign_taxonomy_rdp.py -v --rdp_max_memory 4000 -O 8 -i $USEARCHDI
 
 
 # Baseline Time (REAL: 0m16.053s)
-echo -e '\n----------- STEP #18 -----------'
+echo -e '\n----------- STEP #17 -----------'
+rm -f $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom
 time biom add-metadata --sc-separated taxonomy --observation-header OTUID,taxonomy --observation-metadata-fp $PROJECTDIR/assigned_taxonomy/seqs.filtered.derep.mc2.repset.nochimeras.OTUs_tax_assignments.txt -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTU-table.biom -o $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom
 
 
-echo -e '\n--------------------------- STEP #19 ---------------------------'
+echo -e '\n--------------------------- STEP #18 ---------------------------'
 echo 'Baseline Time (real	0m51.385s)'
 echo 'parallel_align_seqs_pynast.py now running...'
 time parallel_align_seqs_pynast.py -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.OTUs.fasta -t /opt/qiime_software/core_set_aligned.fasta.imputed -o $PROJECTDIR/pynast_aligned_defaults -O 8
 
 
-echo -e '\n--------------------------- STEP #20 ---------------------------'
+echo -e '\n--------------------------- STEP #19 ---------------------------'
 echo 'Baseline Time (real	0m0.538s)'
 echo 'filter_alignment.py now running ...'
 time filter_alignment.py -i $PROJECTDIR/pynast_aligned_defaults/seqs.filtered.derep.mc2.repset.nochimeras.OTUs_aligned.fasta -m /opt/qiime_software/lanemask_in_1s_and_0s -o $PROJECTDIR/pynast_aligned_defaults/filtered_alignments
 
-echo -e '\n--------------------------- STEP #21 ---------------------------'
+echo -e '\n--------------------------- STEP #20 ---------------------------'
 echo 'Baseline Time (real	0m52.461s)'
 echo 'make_phylogeny.py now running ...'
 time make_phylogeny.py -i $PROJECTDIR/pynast_aligned_defaults/filtered_alignments/seqs.filtered.derep.mc2.repset.nochimeras.OTUs_aligned_pfiltered.fasta -o $PROJECTDIR/rep_set.tre
 
 
 
-echo -e '\n--------------------------- STEP #22 ---------------------------'
+echo -e '\n--------------------------- STEP #21 ---------------------------'
 echo 'Baseline Time (real	0m0.189s)'
 echo 'biom summarize-table now running ...'
+rm -f $PROJECTDIR/bacstats.txt
 time biom summarize-table -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.biom -o $PROJECTDIR/bacstats.txt
 
 # This is the end of the Timer for Part 1 of this script.
@@ -431,12 +437,13 @@ echo -e '\n\n *** The Following Timestamp is for the script up to this point. **
 date +%r
 }
 
-COMMENT
+
 
 echo -e '\n\n'
 echo '#############################################################'
 echo "#####          Analyst's Attention is Required          #####"
 echo '#############################################################'
+gedit $PROJECTDIR/bacstats.txt &
 echo -e '\n**** Analyst must review the bacstats.txt file and determin the appropriate rarefaction level.\n'
 echo "**** bacstats.txt can be found at $PROJECTDIR/bacstats.txt"
 echo -e '\n**** Once the rarefaction level is determined enter the value below.\n'
@@ -474,15 +481,26 @@ echo 'jackknifed_beta_diversity.py is now running ...'
 time jackknifed_beta_diversity.py -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.reduced.biom -t $PROJECTDIR/rep_set.tre -m $MAPPINGFILE -o $PROJECTDIR/jackbdiv -f -e $RAREFACTION_VALUE
 
 
+echo -e '\n--------------------------- STEP #2-6 ---------------------------'
+echo 'Baseline Time (real	0m0.509s)'
+echo 'make_bootstrapped_tree.py is now running ...'
+time make_bootstrapped_tree.py -m $PROJECTDIR/jackbdiv/unweighted_unifrac/upgma_cmp/master_tree.tre -s $PROJECTDIR/jackbdiv/unweighted_unifrac/upgma_cmp/jackknife_support.txt -o $PROJECTDIR/jackbdiv/unweighted_unifrac/upgma_cmp/jackknife_named_nodes.pdf
 
+echo -e '\n--------------------------- STEP #2-7 ---------------------------'
+echo 'Baseline Time (real	0m1.814s)'
+echo 'single_rarefaction.py is now running ...'
+time single_rarefaction.py -i $USEARCHDIR/seqs.filtered.derep.mc2.repset.nochimeras.tax.OTU-table.reduced.biom -o $PROJECTDIR/rarefiedOTUtablereduced.biom -d $RAREFACTION_VALUE
 
+echo -e '\n--------------------------- STEP #2-8 ---------------------------'
+echo 'Baseline Time (real	0m0.449s)'
+echo 'biom convert is now running ...'
+rm -f $PROJECTDIR/rarefiedOTUtablereduced.txt
+time biom convert -i $PROJECTDIR/rarefiedOTUtablereduced.biom -o $PROJECTDIR/rarefiedOTUtablereduced.txt -b --table-type "otu table" --header-key "taxonomy"
 
-
-
-
-
-
-
+echo -e '\n--------------------------- STEP #2-9 ---------------------------'
+echo 'Baseline Time (real	0m1.850s)'
+echo 'summarize_taxa.py is now running ...'
+time summarize_taxa.py -i $PROJECTDIR/rarefiedOTUtablereduced.biom -o $PROJECTDIR/taxasummary/absolutecounts -L 1,2,3,4,5,6,7 -a
 
 
 
