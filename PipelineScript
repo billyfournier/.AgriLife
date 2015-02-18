@@ -225,7 +225,7 @@ echo "gunzip 4 of 4 COMPLETE"
 
 
 << COMMENT
-COMMENT
+
 
 
 
@@ -444,6 +444,8 @@ date +%r
 }
 
 
+COMMENT
+
 
 echo -e '\n\n'
 echo '#############################################################'
@@ -452,9 +454,10 @@ echo '#############################################################'
 
 gedit $PROJECTDIR/bacstats.txt & disown
 export N=`grep samples: $PROJECTDIR/bacstats.txt | awk -F: '{print $2}'`
-wget -O $PROJECTDIR/ https://raw.githubusercontent.com/billyfournier/.AgriLife/master/graph.R
+wget -nc -P $PROJECTDIR/ https://raw.githubusercontent.com/billyfournier/.AgriLife/master/graph.R
 R CMD BATCH $PROJECTDIR/graph.R
-evince Rplots.pdf & disown
+mv -f Rplots.pdf $PROJECTDIR
+evince $PROJECTDIR/Rplots.pdf & disown
 
 echo -e '\n**** Analyst must review the bacstats.txt file and determin the appropriate rarefaction level.\n'
 echo "**** bacstats.txt can be found at $PROJECTDIR/bacstats.txt"
