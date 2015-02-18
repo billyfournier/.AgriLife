@@ -36,7 +36,7 @@ WORKDIR=$HOME/Analysis/JeffBrady
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #3# 	PATH to Project directory EXAMPLE: $WORKDIR/DataSetName_TodaysDate
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-PROJECTDIR=$WORKDIR/Painter_2_4_2015
+export PROJECTDIR=$WORKDIR/Painter_2_4_2015
 #PROJECTDIR=$WORKDIR/$PROJECT_NAME
 
 
@@ -222,8 +222,14 @@ gunzip $DATADIR/read2.fastq.gz
 echo "gunzip 4 of 4 COMPLETE"
 
 
+
+
 << COMMENT
-COMMENT
+
+
+
+
+
 
 # This is the timer for Part 1 of this script.
 time {
@@ -437,13 +443,18 @@ echo -e '\n\n *** The Following Timestamp is for the script up to this point. **
 date +%r
 }
 
-
+COMMENT
 
 echo -e '\n\n'
 echo '#############################################################'
 echo "#####          Analyst's Attention is Required          #####"
 echo '#############################################################'
 gedit $PROJECTDIR/bacstats.txt &
+export N=`grep samples: $PROJECTDIR/bacstats.txt | awk -F: '{print $2}'`
+R CMD BATCH $HOME/.AgriLife/graph.R
+evince Rplots.pdf &
+
+
 echo -e '\n**** Analyst must review the bacstats.txt file and determin the appropriate rarefaction level.\n'
 echo "**** bacstats.txt can be found at $PROJECTDIR/bacstats.txt"
 echo -e '\n**** Once the rarefaction level is determined enter the value below.\n'
