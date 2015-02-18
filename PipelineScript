@@ -225,7 +225,7 @@ echo "gunzip 4 of 4 COMPLETE"
 
 
 << COMMENT
-
+COMMENT
 
 
 
@@ -444,7 +444,7 @@ date +%r
 }
 
 
-COMMENT
+
 
 
 echo -e '\n\n'
@@ -454,7 +454,7 @@ echo '#############################################################'
 
 gedit $PROJECTDIR/bacstats.txt & disown
 export N=`grep samples: $PROJECTDIR/bacstats.txt | awk -F: '{print $2}'`
-wget -P $PROJECTDIR/ https://raw.githubusercontent.com/billyfournier/.AgriLife/master/graph.R
+wget -N -P $PROJECTDIR/ https://raw.githubusercontent.com/billyfournier/.AgriLife/master/graph.R
 R CMD BATCH $PROJECTDIR/graph.R
 mv -f Rplots.pdf $PROJECTDIR
 evince $PROJECTDIR/Rplots.pdf & disown
