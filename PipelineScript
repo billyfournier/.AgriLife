@@ -61,11 +61,11 @@ DRIVE5DIR=$PROJECTDIR/Drive5
 
 
 
-mkdir $WORKDIR
-mkdir $PROJECTDIR
-mkdir $DATADIR
-mkdir $USEARCHDIR
-mkdir $DRIVE5DIR
+mkdir -p $WORKDIR
+mkdir -p $PROJECTDIR
+mkdir -p $DATADIR
+mkdir -p $USEARCHDIR
+mkdir -p $DRIVE5DIR
 
 ####  PIPLELINE LOG file setup  ####
 LOGFILE="$PROJECTDIR/pipeline.log"
