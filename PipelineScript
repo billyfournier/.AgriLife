@@ -141,7 +141,7 @@ if [ "$(find $DATADIR -type f -name '*read1*')" ]; then
 	echo ''    
 	echo "***WARNING: read1 has already been copied to $DATADIR"
 else
-	find $DATASTORAGEDIR -type f -name '*_R1_*' -exec cp {} $DATADIR/read1.fastq.gz \;
+	find $DATASTORAGEDIR -maxdepth 1 -type f -name '*_R1_*' -exec cp {} $DATADIR/read1.fastq.gz \;
 	echo ''    
 	echo "read1 has been copied to $DATADIR"
 fi
@@ -154,7 +154,7 @@ if [ "$(find $DATADIR -type f -name '*read2*')" ]; then
 	echo ''    
 	echo "***WARNING: read2 has already been copied to $DATADIR"
 else
-	find $DATASTORAGEDIR -type f -name '*_R2_*' -exec cp {} $DATADIR/read2.fastq.gz \;
+	find $DATASTORAGEDIR -maxdepth 1 -type f -name '*_R2_*' -exec cp {} $DATADIR/read2.fastq.gz \;
 	echo ''    
 	echo "read2 has been copied to $DATADIR"
 fi
@@ -253,7 +253,7 @@ echo -e "\n*** Head complete ***\n\n"
 echo -e '\n--------------------------- Step 2 ---------------------------'
 echo 'Stream editor replacing patterns in barcodes.fastq (BASELINE TIME: 1m44.924s)'
 time sed -i 's/2:N:0:1/1:N:0:1/g' $PROJECTDIR/barcodes/barcodes.fastq
-echo -e "\n*** sed COMPLETE ***"
+echo -e "\n*** sed COMPLETE ***\n"
 
 
 	### Checking the numbers of forward and reverse reads.
@@ -276,7 +276,7 @@ echo -e '\n--------------------------- Step 3 ---------------------------'
 echo -e 'Joining paired end reads   (BASELINE TIME: real	15m41.506s)'
 date +%r
 time join_paired_ends.py -f $DATADIR/read1.fastq -r $DATADIR/read2.fastq -o $PROJECTDIR/JoinedSeqs/fastq-join_joined -b $PROJECTDIR/barcodes/barcodes.fastq -p 50 -j 25
-echo 'Joining Paired Ends --COMPLETE--'
+echo -e '--- Joining Paired Ends Complete ---\n'
 
 echo 'count_seqs.py Starting'
 #Check the numbers of what's left after joining:
