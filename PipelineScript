@@ -2,23 +2,7 @@
 DATASET_NAME=Bell.12.21.2015
 MY_NAME=BillyFournier
 
-#This is a paired end workflow for the prokaryotic primers CAGCMGCCGCGGTAA and TACNVGGGTATCTAATCC and Bacterial primers CCTACGGGNGGCWGCAG and GACTACHVGGGTATCTAATCCthat uses usearch for to merge reads and length filters based on read quality before merging
 
-<< COMMENT_READIN
-
-read -p "Enter Data Sets Name (Folder in DATA_SETS): " DATASET_NAME
-echo ''
-
-read -p "Enter Your Name, i.e. JeffBrady: " MY_NAME
-MY_NAME=${MY_NAME:-JeffBrady}
-echo ''
-
-read -p "Press ENTER to Recieve a DEFAULT Project Name:  " PROJECT_NAME
-DATE=`date +%d`.`date +%m`.`date +%Y`
-PROJECT_NAME=${PROJECT_NAME:-$DATASET_NAME.$DATE}
-echo $PROJECT_NAME
-
-COMMENT_READIN
 
 
 DATE= $(date +".%m.%d.%Y_%H:%M")
@@ -73,6 +57,8 @@ mkdir -p $DATADIR
 mkdir -p $USEARCHDIR
 mkdir -p $SCRIPTSDIR
 
+# Making use of external time command for more readability
+alias time='command time -f "[%E]    Elsapsed Time"'
 
 ####  PIPLELINE LOG file setup  ####
 LOGFILE="$PROJECTDIR/pipeline.log"
