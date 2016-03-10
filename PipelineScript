@@ -149,7 +149,7 @@ else
 	echo ''    
 	echo "read2 has been copied to $DATADIR"
 fi
-sleep 10
+sleep 1
 
 ##########################################################
 # Copying the mapping file to the working data directory #
