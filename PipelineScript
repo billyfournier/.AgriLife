@@ -76,7 +76,7 @@ find $DRIVE5STORAGE -type f -name 'progress.py' -exec cp {} $SCRIPTSDIR/ \;
 find $DRIVE5STORAGE -type f -name 'fasta.py' -exec cp {} $SCRIPTSDIR/ \;
 find $PYTHONSTORAGE -type f -name 'remove_unused_barcodes.py' -exec cp {} $SCRIPTSDIR/ \;
 find $PYTHONSTORAGE -type f -name 'fastqCombinePairedEnd.py' -exec cp {} $SCRIPTSDIR/ \;
-find /media/jeff/STORAGE/DATA_SETS -type f -name 'ReadMe.txt' -exec cp {} $PROJECTDIR/ \;
+find /media/STORAGE/DATA_SETS -type f -name 'ReadMe.txt' -exec cp {} $PROJECTDIR/ \;
 find $DATASTORAGEDIR -type f -name 'PipelineScript' -exec cp {} $PROJECTDIR/ \;
 
 # Finding gold.fasta
