@@ -1,0 +1,865 @@
+#!/bin/bash
+
+#This is a paired end workflow for the prokaryotic primers CAGCMGCCGCGGTAA and TACNVGGGTATCTAATCC and Bacterial primers CCTACGGGNGGCWGCAG and GACTACHVGGGTATCTAATCCthat uses usearch for to merge reads and length filters based on read quality before merging
+
+
+DATASET_NAME=Bell.12.21.2015
+MY_NAME=BillyFournier
+
+
+DATE= $(date +".%m.%d.%Y_%H:%M")
+## BE SURE to update 1, 2 , 3, 4 below and ensure they are correct.
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#1# 	PATH to the Raw Data you are analysing on the Storage drive  
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+DATASTORAGEDIR=/media/STORAGE/DATA_SETS/$DATASET_NAME
+#DATASTORAGEDIR=/media/jeff/STORAGE/DATA_SETS/$DATASET_NAME
+
+
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#2# 	PATH to "your" Analysis director EXAMPLE: $HOME/Analysis/YourName
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+WORKDIR=$HOME/Analysis/$MY_NAME
+
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#3# 	PATH to Project directory EXAMPLE: $WORKDIR/DataSetName_TodaysDate
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+export PROJECTDIR=$WORKDIR/Analysis_$MY_NAME$DATE
+#PROJECTDIR=$WORKDIR/$PROJECT_NAME    This needs some consideration
+
+
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#4#  	PATH to Drive5 scripts
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~
+DRIVE5STORAGE=/media/STORAGE/drive5
+
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#4#  	PATH to python scripts
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~
+PYTHONSTORAGE=/media/STORAGE/python
+
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+
+
+#PATH to Raw Data
+DATADIR=$PROJECTDIR/DATA
+#PATH to Usearch Output
+USEARCHDIR=$PROJECTDIR/Usearch_Output
+SCRIPTSDIR=$PROJECTDIR/scripts
+
+
+
+
+mkdir -p $WORKDIR
+mkdir -p $PROJECTDIR
+mkdir -p $DATADIR
+mkdir -p $USEARCHDIR
+mkdir -p $SCRIPTSDIR
+
+
+####  PIPLELINE LOG file setup  ####
+LOGFILE="$PROJECTDIR/pipeline.log"
+touch $LOGFILE
+exec >  >(tee $LOGFILE)
+exec 2>&1
+echo Log Start
+date +%r
+
+find $DRIVE5STORAGE -type f -name 'fasta_number.py' -exec cp {} $SCRIPTSDIR/ \;
+find $DRIVE5STORAGE -type f -name 'die.py' -exec cp {} $SCRIPTSDIR/ \;
+find $DRIVE5STORAGE -type f -name 'uc2otutab_mod.py' -exec cp {} $SCRIPTSDIR/ \;
+find $DRIVE5STORAGE -type f -name 'uc.py' -exec cp {} $SCRIPTSDIR/ \;
+find $DRIVE5STORAGE -type f -name 'progress.py' -exec cp {} $SCRIPTSDIR/ \;
+find $DRIVE5STORAGE -type f -name 'fasta.py' -exec cp {} $SCRIPTSDIR/ \;
+find $PYTHONSTORAGE -type f -name 'remove_unused_barcodes.py' -exec cp {} $SCRIPTSDIR/ \;
+find $PYTHONSTORAGE -type f -name 'fastqCombinePairedEnd.py' -exec cp {} $SCRIPTSDIR/ \;
+find /media/STORAGE/DATA_SETS -type f -name 'ReadMe.txt' -exec cp {} $PROJECTDIR/ \;
+
+
+# Finding gold.fasta
+
+if [ "$(find /media/STORAGE/drive5 -type f -name '*gold.fasta*')" ]; then
+	echo ''    
+	echo "gold.fasta has been found."
+	GOLDFASTA=`find /media/STORAGE/drive5 -type f -name '*gold.fasta*'`
+	echo "gold.fasta is located at $GOLDFASTA"
+	echo ''
+else    
+	echo -e "\n++++++++ WARNING: gold.fasta not found. ++++++++++++"
+	echo 'gold.fasta not found'
+	echo 'Downloading gold.fasta'	
+	wget -O /media/STORAGE/drive5/gold.fasta -nc http://drive5.com/uchime/gold.fa
+	exit 1
+fi
+
+printf '\n\n'
+sleep 1
+
+
+################################################
+# Copying index1 to the working data directory #
+################################################
+if [ "$(find $DATADIR -type f -name '*index1*')" ]; then
+	echo ''    
+	echo "***WARNING: index1 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -type f -name '*_I1_*' -exec cp {} $DATADIR/index1.fastq.gz \;
+	echo ''    
+	echo "index1 has been copied to $DATADIR"
+fi
+sleep 1
+
+################################################
+# Copying index2 to the working data directory #
+################################################
+if [ "$(find $DATADIR -type f -name '*index2*')" ]; then
+	echo ''    
+	echo "***WARNING: index2 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -type f -name '*_I2_*' -exec cp {} $DATADIR/index2.fastq.gz \;
+	echo ''    
+	echo "index2 has been copied to $DATADIR"
+fi
+sleep 1
+
+###############################################
+# Copying read1 to the working data directory #
+###############################################
+if [ "$(find $DATADIR -type f -name '*read1*')" ]; then
+	echo ''    
+	echo "***WARNING: read1 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -maxdepth 1 -type f -name '*_R1_*' -exec cp {} $DATADIR/read1.fastq.gz \;
+	echo ''    
+	echo "read1 has been copied to $DATADIR"
+fi
+sleep 1
+
+###############################################
+# Copying read2 to the working data directory #
+###############################################
+if [ "$(find $DATADIR -type f -name '*read2*')" ]; then
+	echo ''    
+	echo "***WARNING: read2 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -maxdepth 1 -type f -name '*_R2_*' -exec cp {} $DATADIR/read2.fastq.gz \;
+	echo ''    
+	echo "read2 has been copied to $DATADIR"
+fi
+sleep 10
+
+##########################################################
+# Copying the mapping file to the working data directory #
+##########################################################
+if [ "$(find $DATADIR -type f -iname '*mapping*')" ]; then
+	echo ''  
+	MAPPINGFILE=`find $DATADIR -type f -iname '*mapping*'`  
+	echo "***WARNING: Mapping File has already been copied to $MAPPINGFILE"
+else	
+	find $DATASTORAGEDIR -type f -iname '*mapping*' -exec cp {} $DATADIR/ \;
+	MAPPINGFILE=`find $DATADIR -type f -iname '*mapping*'`
+	echo ''    
+	echo "Mapping File has been copied to $MAPPINGFILE"
+
+fi
+sleep 1
+
+echo ''
+echo "Unzipping files in *** $DATADIR ***"
+gunzip $DATADIR/index1.fastq.gz
+echo "gunzip 1 of 4 COMPLETE"
+gunzip $DATADIR/index2.fastq.gz
+echo "gunzip 2 of 4 COMPLETE"
+gunzip $DATADIR/read1.fastq.gz
+echo "gunzip 3 of 4 COMPLETE"
+gunzip $DATADIR/read2.fastq.gz
+echo "gunzip 4 of 4 COMPLETE"
+
+########################################################################################
+########################################################################################
+########################################################################################
+
+# Start Steps Here
+
+<< COMMENT
+
+
+
+
+
+
+# This is the timer for Part 1 of this script.
+time {
+
+echo -e '\n--------------------------- Step 1 ---------------------------'
+echo 'Counting Index 1 (BASELINE TIME: real 2m30.680s)'
+date +%r
+time count_seqs.py -i $DATADIR/index1.fastq
+
+echo -e '\n--------------------------- Step 2 ---------------------------'
+echo 'Counting Index 2 (BASELINE TIME: real 2m30.680s)'
+time count_seqs.py -i $DATADIR/index2.fastq
+
+echo -e '\n--------------------------- Step 3 ---------------------------'
+echo 'Counting Read 1 (BASELINE TIME: real 3m20.000s)'
+time count_seqs.py -i $DATADIR/read1.fastq
+
+echo -e '\n--------------------------- Step 4 ---------------------------'
+echo 'Counting Read 2 (BASELINE TIME: real 3m20.000s)'
+time count_seqs.py -i $DATADIR/read2.fastq
+
+echo -e '\n--------------------------- Step 5 ---------------------------'
+echo -e '\nExtracting Barcodes (BASELINE TIME: real 19m51.680s)'
+date +%r
+time extract_barcodes.py -f $DATADIR/index1.fastq -r $DATADIR/index2.fastq -c barcode_paired_end --bc1_len 6 --bc2_len 6 -o $PROJECTDIR/barcodes --rev_comp_bc1
+echo -e '\nExtracting Barcodes COMPLETE'
+
+echo -e '\n--------------------------- Step 6 ---------------------------'
+echo 'Counting extracted barcode sequences (BASELINE TIME: real 2m48.680s)'
+time count_seqs.py -i $PROJECTDIR/barcodes/barcodes.fastq
+
+
+	### Printing top 10 lines of file barcodes.fastq.
+echo -e '\n--------------------------- Step 7 ---------------------------'
+echo -e '\nTop 10 lines of the barcodes.fastq for inspection purposes'
+head -n 10 $PROJECTDIR/barcodes/barcodes.fastq 
+echo -e "\n*** Head complete ***\n\n"
+
+### Splitting libraries on read 1
+echo -e '\n--------------------------- Step 8 ---------------------------'
+echo 'Splitting libraries on read 1 (BASELINE TIME: real 22m48.680s)'
+date +%r
+time split_libraries_fastq.py -m $MAPPINGFILE --barcode_type 12 -b $PROJECTDIR/barcodes/barcodes.fastq -i $DATADIR/read1.fastq -o $PROJECTDIR/SplitLibrariesRead1 -n 300 -q 0 -p 0.01 -r 300 --store_demultiplexed_fastq
+echo -e "\n*** Splitting libraries on read 1 COMPLETE ***"
+
+### Splitting libraries on read 2
+echo -e '\n--------------------------- Step 9 ---------------------------'
+echo 'Splitting libraries on read 2(BASELINE TIME: real 22m48.680s)'
+date +%r
+time split_libraries_fastq.py -m $MAPPINGFILE --barcode_type 12 -b $PROJECTDIR/barcodes/barcodes.fastq -i $DATADIR/read2.fastq -o $PROJECTDIR/SplitLibrariesRead2 -n 300 -q 0 -p 0.01 -r 300 --store_demultiplexed_fastq
+echo -e "\n*** Splitting libraries on read 2 COMPLETE ***"
+
+
+
+### Length truncation of read 1 to 215 bp
+echo -e '\n--------------------------- Step 10 ---------------------------'
+echo "Truncating read 1 length to 215 bp (Baseline Time: real 1m30.634s )"
+date +%r
+usearch7.0.1 -fastq_filter $PROJECTDIR/SplitLibrariesRead1/seqs.fastq -fastq_trunclen 215 -fastqout $PROJECTDIR/SplitLibrariesRead1/truncseqs.fastq
+
+### Length truncation of read 2 to 155 bp
+echo -e '\n--------------------------- Step 11 ---------------------------'
+echo "Truncating read 2 length to 155 bp (Baseline Time: real 1m30.634s )"
+date +%r
+usearch7.0.1 -fastq_filter $PROJECTDIR/SplitLibrariesRead2/seqs.fastq -fastq_trunclen 155 -fastqout $PROJECTDIR/SplitLibrariesRead2/truncseqs.fastq
+
+echo -e '\n--------------------------- Step 12 ---------------------------'
+echo -e 'Repairing read 1 sequence labels after splitting libraries  (BASELINE TIME: real	0m41.506s)'
+time sed 's/orig_bc=.*//g' <$PROJECTDIR/SplitLibrariesRead1/truncseqs.fastq >$PROJECTDIR/SplitLibrariesRead1/seqs2.fastq
+
+time sed 's/^.*M01451/@M01451/' <$PROJECTDIR/SplitLibrariesRead1/seqs2.fastq >$PROJECTDIR/SplitLibrariesRead1/seqs3.fastq
+
+echo -e '\n--------------------------- Step 13 ---------------------------'
+echo -e 'Repairing read 2 sequence labels after splitting libraries  (BASELINE TIME: real	15m41.506s)'
+time sed 's/orig_bc=.*//g' <$PROJECTDIR/SplitLibrariesRead2/truncseqs.fastq >$PROJECTDIR/SplitLibrariesRead2/seqs2.fastq
+
+time sed 's/^.*M01451/@M01451/' <$PROJECTDIR/SplitLibrariesRead2/seqs2.fastq >$PROJECTDIR/SplitLibrariesRead2/seqs3.fastq
+
+echo -e '\n--------------------------- Step 14 ---------------------------'
+echo -e 'Cleaning up single reads from read 1 and read 2   (BASELINE TIME: real	15m41.506s)'
+date +%r
+time python $SCRIPTSDIR/fastqCombinePairedEnd.py $PROJECTDIR/SplitLibrariesRead1/seqs3.fastq $PROJECTDIR/SplitLibrariesRead2/seqs3.fastq
+echo 'Cleaning up single reads --COMPLETE--'
+
+
+
+echo -e '\n--------------------------- Step 15 ---------------------------'
+echo -e 'Joining paired end reads with usearch   (BASELINE TIME: real	3m30.506s)'
+date +%r
+usearch7.0.1 -fastq_mergepairs $PROJECTDIR/SplitLibrariesRead1/seqs3.fastq_pairs_R1.fastq -reverse $PROJECTDIR/SplitLibrariesRead2/seqs3.fastq_pairs_R2.fastq -fastqout $USEARCHDIR/merged.fastq
+echo 'Joining Paired Ends --COMPLETE--'
+
+echo -e '\n--------------------------- Step 16 ---------------------------'
+echo -e 'Removing unused barcodes  (BASELINE TIME: real	1m31.506s)'
+date +%r
+time python $SCRIPTSDIR/remove_unused_barcodes.py $PROJECTDIR/barcodes/barcodes.fastq $USEARCHDIR/merged.fastq $USEARCHDIR/mergedbarcodes.fastq
+echo 'Removing unused barcodes --COMPLETE--'
+
+echo -e '\n--------------------------- Step 17 ---------------------------'
+echo 'count_seqs.py Starting	(BASELINE TIME: real	1m31.506s / each)'
+date +%r
+#Check the numbers of what's left after joining:
+time count_seqs.py -i $USEARCHDIR/merged.fastq
+time count_seqs.py -i $USEARCHDIR/mergedbarcodes.fastq
+
+	### Splitting libraries on paired reads
+echo -e '\n--------------------------- Step 18 ---------------------------'
+echo 'Splitting libraries on paired reads(BASELINE TIME: real 16m48.680s)'
+date +%r
+time split_libraries_fastq.py -m $MAPPINGFILE --barcode_type 12 -b $USEARCHDIR/mergedbarcodes.fastq -i $USEARCHDIR/merged.fastq -o $PROJECTDIR/SplitLibraries --store_demultiplexed_fastq
+echo -e "\n*** Splitting libraries of paired reads COMPLETE ***"
+
+
+### Quality plotting
+echo -e '\n--------------------------- Step 19 ---------------------------'
+echo "Converting quality metrics of merged split libraries (Baseline Time: real 61m54.634s )"
+date +%r
+time convert_fastaqual_fastq.py -c fastq_to_fastaqual -f $PROJECTDIR/SplitLibraries/seqs.fastq -o $PROJECTDIR/SplitLibraries/fastaqual
+
+# Baseline Time (REAL: )
+echo -e '\n--------------------------- Step 20 ---------------------------'
+
+echo -e '\n--Checking for primers/adapters in seqs -----------'
+echo "(Baseline Time: real 1m54.634s )"
+date +%r
+grep -c CAGCAGCCGCGGTAA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CAGCCGCCGCGGTAA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TTACCGCGGCTGCTG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TTACCGCGGCGGCTG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGTCTCTTATACACATCT $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c AGATGTGTATAAGAGACAG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c TACAAGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACCAGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACGAGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACTAGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c TACACGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACCCGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACGCGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACTCGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c TACAGGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACCGGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACGGGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACTGGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c GGATTAGATACCCCAGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCCCGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCCGGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCCTGTA $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c GGATTAGATACCCGAGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCGCGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCGGGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCGTGTA $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c GGATTAGATACCCTAGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCTCGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCTGGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCTTGTA $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGAGGCAGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCTGCCTCCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGCGGCAGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCTGCCGCCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGGGGCAGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCTGCCCCCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGTGGCAGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCTGCCACCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGAGGCTGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCAGCCTCCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGCGGCTGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCAGCCGCCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGGGGCTGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCAGCCCCCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGTGGCTGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCAGCCACCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CTGTCTCTTATACACATCT $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c AGATGTGTATAAGAGACAG $PROJECTDIR/SplitLibraries/seqs.fna
+
+# Baseline Time 
+echo -e '\n--------------------------- Step 21 ---------------------------'
+echo -e '\n----------- Removing forward primer/adapters from seqs -----------'
+sed -i 's/CAGCAGCCGCGGTAA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CAGCCGCCGCGGTAA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TTACCGCGGCTGCTG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TTACCGCGGCGGCTG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGTCTCTTATACACATCT//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/AGATGTGTATAAGAGACAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/TACAAGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACCAGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACGAGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACTAGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/TACACGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACCCGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACGCGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACTCGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/TACAGGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACCGGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACGGGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACTGGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/GGATTAGATACCCCAGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCCCGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCCGGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCCTGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/GGATTAGATACCCGAGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCGCGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCGGGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCGTGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/GGATTAGATACCCTAGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCTCGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCTGGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCTTGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGAGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCTCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGCGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCGCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGGGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCCCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGTGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCACCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGAGGCTGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCTCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGCGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCGCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGGGGCTGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCCCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGTGGCTGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCACCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CTGTCTCTTATACACATCT//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/AGATGTGTATAAGAGACAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGAGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCTCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGCGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCGCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGGGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCCCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGTGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCACCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGAGGCTGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCTCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGCGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCGCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGGGGCTGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCCCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGTGGCTGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCACCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CTGTCTCTTATACACATCT//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/AGATGTGTATAAGAGACAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+# Baseline Time 
+echo -e '\n--------------------------- Step 22 ---------------------------'
+echo -e '\n----------- Removing forward primer/adapters from seqs -----------'
+sed -i 's/CAGCAGCCGCGGTAA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CAGCCGCCGCGGTAA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TTACCGCGGCTGCTG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TTACCGCGGCGGCTG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGTCTCTTATACACATCT//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/AGATGTGTATAAGAGACAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/TACAAGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACCAGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACGAGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACTAGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/TACACGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACCCGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACGCGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACTCGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/TACAGGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACCGGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACGGGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/TACTGGGGTATCTAATCC//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/GGATTAGATACCCCAGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCCCGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCCGGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCCTGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/GGATTAGATACCCGAGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCGCGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCGGGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCGTGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/GGATTAGATACCCTAGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCTCGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCTGGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/GGATTAGATACCCTTGTA//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGAGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCTCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGCGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCGCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGGGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCCCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGTGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCACCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGAGGCTGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCTCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGCGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCGCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGGGGCTGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCCCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGTGGCTGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCACCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CTGTCTCTTATACACATCT//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/AGATGTGTATAAGAGACAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGAGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCTCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGCGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCGCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGGGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCCCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGTGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCTGCCACCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGAGGCTGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCTCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGCGGCAGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCGCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGGGGCTGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCCCCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CCTACGGGTGGCTGCAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/CTGCAGCCACCCGTAGG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+sed -i 's/CTGTCTCTTATACACATCT//g' $PROJECTDIR/SplitLibraries/seqs.fna
+sed -i 's/AGATGTGTATAAGAGACAG//g' $PROJECTDIR/SplitLibraries/seqs.fna
+
+# Baseline Time (REAL: )
+echo -e '\n--------------------------- Step 23 ---------------------------'
+
+echo -e '\n--Checking for primers/adapters in seqs -----------'
+grep -c CAGCAGCCGCGGTAA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CAGCCGCCGCGGTAA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TTACCGCGGCTGCTG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TTACCGCGGCGGCTG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGTCTCTTATACACATCT $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c AGATGTGTATAAGAGACAG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c TACAAGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACCAGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACGAGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACTAGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c TACACGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACCCGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACGCGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACTCGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c TACAGGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACCGGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACGGGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c TACTGGGGTATCTAATCC $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c GGATTAGATACCCCAGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCCCGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCCGGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCCTGTA $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c GGATTAGATACCCGAGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCGCGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCGGGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCGTGTA $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c GGATTAGATACCCTAGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCTCGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCTGGTA $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c GGATTAGATACCCTTGTA $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGAGGCAGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCTGCCTCCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGCGGCAGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCTGCCGCCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGGGGCAGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCTGCCCCCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGTGGCAGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCTGCCACCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGAGGCTGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCAGCCTCCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGCGGCTGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCAGCCGCCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGGGGCTGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCAGCCCCCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CCTACGGGTGGCTGCAG $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c CTGCAGCCACCCGTAGG $PROJECTDIR/SplitLibraries/seqs.fna
+
+grep -c CTGTCTCTTATACACATCT $PROJECTDIR/SplitLibraries/seqs.fna
+grep -c AGATGTGTATAAGAGACAG $PROJECTDIR/SplitLibraries/seqs.fna
+### Counting sequences.
+echo -e '\n--------------------------- Step 24 ---------------------------'
+echo -e '\nCounting sequences (BASELINE TIME: real 0m48.680s)'
+time count_seqs.py -i $PROJECTDIR/SplitLibraries/seqs.fna
+
+
+
+OTUS_97=`find /usr/local -name 97_otus.fasta`
+# Baseline Time (REAL: 0m53.254s)
+echo -e '\n----------- STEP #25 -----------'
+echo 'OTU picking with uclust and GG13.8 as preferred OTUs'
+echo 'Baseline Time (REAL: 22m01.569s)'
+date +%r
+time parallel_pick_otus_uclust_ref.py -i $PROJECTDIR/SplitLibraries/seqs.fna -r $OTUS_97 -o $PROJECTDIR/ucref97otus -s 0.97 -z -O 10
+echo ''
+
+echo '----------- STEP #26 -----------'
+echo 'Pick rep set'
+echo 'Baseline Time (REAL: 1m25.569s)'
+date +%r
+time pick_rep_set.py -i $PROJECTDIR/ucref97otus/seqs_otus.txt -f $PROJECTDIR/SplitLibraries/seqs.fna -o $PROJECTDIR/ucref97otus/rep_set.fna
+echo ''
+
+echo '----------- STEP #27 -----------'
+echo 'Chimera filtering'
+echo 'Baseline Time (REAL: fast)'
+date +%r
+usearch7.0.1 -uchime_ref $PROJECTDIR/ucref97otus/rep_set.fna -db $GOLDFASTA -strand plus -nonchimeras $USEARCHDIR/rep_set_nochimeras.fna
+echo ''
+
+
+
+OTUS_97=`find /usr/local -name 97_otus.fasta`
+OTU_TAX_97=`find /usr/local -name 97_otu_taxonomy.txt`
+RDP_PATH=`find /home -name rdp_classifier-2.2.jar`
+echo '----------- STEP #28 -----------'
+echo 'Assign taxonomy with rdp  Baseline Time (REAL: 31m51.569s)'
+date +%r
+time parallel_assign_taxonomy_rdp.py --rdp_max_memory 4000 --rdp_classifier_fp $RDP_PATH -i $USEARCHDIR/rep_set_nochimeras.fna -o $PROJECTDIR/assigned_taxonomy -t $OTU_TAX_97 -r $OTUS_97 -O 7
+
+echo '----------- STEP #29 -----------'
+echo 'Make .biom table'
+date +%r
+time make_otu_table.py -i $PROJECTDIR/ucref97otus/seqs_otus.txt -t $PROJECTDIR/assigned_taxonomy/rep_set_nochimeras_tax_assignments.txt -o $PROJECTDIR/otu_table.biom
+echo ''
+
+
+
+echo '----------- STEP #30 -----------'
+echo 'Make an OTU .txt table'
+date +%r
+time biom convert -i $PROJECTDIR/otu_table.biom -o $PROJECTDIR/otu_table.txt --table-type "OTU table" --header-key "taxonomy" --to-json
+
+echo '----------- STEP #31 -----------'
+echo 'Filter singletons from OTU table'
+date +%r
+time filter_otus_from_otu_table.py -i $PROJECTDIR/otu_table.biom -o $PROJECTDIR/otu_table_no_singletons.biom -n 2
+
+echo '----------- STEP #32 -----------'
+echo 'Make an OTU .txt table'
+date +%r
+time biom convert -i $PROJECTDIR/otu_table_no_singletons.biom -o $PROJECTDIR/otu_table_no_singletons.txt --table-type "OTU table" --header-key "taxonomy" --to-json
+
+# This is the end of the Timer for Part 1 of this script.
+echo -e '\n\n *** The Following Timestamp is for the script up to this point. ***'
+date +%r
+}
+
+
+
+# Now it's necessary to edit the otu_table_no_singletons.txt file to make sure that the taxonomic assignments are sound and also to organize the file so that samples will be plotted in the order you desire.
+echo -e '\n\n'
+echo '#############################################################'
+echo "#####Analyst's Attention is Required to Edit otu_table_no_singletons.txt#####"
+echo '##### After editing save it as otu_table_no_singletons2.txt   ####'
+echo '#############################################################'
+
+read -p "Hit enter when finished saving otu_table_no_singletons2.txt: " 
+
+echo -e '\n--------------------------- STEP #33 ---------------------------'
+echo 'Baseline Time (real	0m0.449s)'
+echo 'biom convert is now running ...'
+date +%r
+time biom convert -i $PROJECTDIR/otu_table_no_singletons2.txt -o $PROJECTDIR/otu_table_no_singletons2.biom --table-type="OTU table" --process-obs-metadata taxonomy --to-
+
+
+# Baseline Time (REAL: real	0m39.119s)
+echo '----------- STEP #34 -----------'
+echo 'Align seqs'
+date +%r
+time parallel_align_seqs_pynast.py -i $USEARCHDIR/rep_set_nochimeras.fna -o $PROJECTDIR/pynast_aligned_defaults -O 7
+
+
+
+wget -nc  -O $PROJECTDIR/lanemask_in_1s_and_0s https://github.com/billyfournier/.AgriLife/raw/master/lanemask_in_1s_and_0s
+# Memory intensive (Will Most likely use all the memory you can throw at it)
+echo -e '\n----------- STEP #35 -----------'
+echo 'Filter alignment (REAL: 7m23.578s)'
+date +%r
+time filter_alignment.py -i $PROJECTDIR/pynast_aligned_defaults/rep_set_nochimeras_aligned.fasta -m $PROJECTDIR/lanemask_in_1s_and_0s -o $PROJECTDIR/pynast_aligned_defaults
+
+# Baseline Time (REAL: 0m16.053s)
+echo -e '\n----------- STEP #36 -----------'
+echo 'Make Phylogeny'
+date +%r
+time make_phylogeny.py -i $PROJECTDIR/pynast_aligned_defaults/rep_set_nochimeras_aligned_pfiltered.fasta -o $PROJECTDIR/rep_set.tre
+
+echo -e '\n--------------------------- STEP #37 ---------------------------'
+echo 'Baseline Time (real	0m0.189s)'
+echo 'biom summarize-table now running ...'
+rm -f $PROJECTDIR/stats.txt
+time biom summarize-table -i $PROJECTDIR/otu_table_no_singletons2.biom -o $PROJECTDIR/stats.txt
+
+
+
+
+echo -e '\n\n'
+echo '#############################################################'
+echo "#####          Analyst's Attention is Required          #####"
+echo '#############################################################'
+
+gedit $PROJECTDIR/stats.txt  & disown
+
+echo -e '\n**** Analyst must review the stats.txt file and determin the appropriate rarefaction level.\n'
+echo "**** stats.txt can be found at $PROJECTDIR/stats.txt"
+echo -e '\n**** Once the rarefaction level is determined enter the value below.\n'
+
+read -p "Enter Rarefaction Value Here: " RAREFACTION_VALUE
+
+A=`expr $RAREFACTION_VALUE - 10`
+STEPVALUE=`expr $A / 10`
+echo "STEPVALUE is: $STEPVALUE"
+
+
+echo -e '\n--------------------------- STEP #2-1 ---------------------------'
+echo 'Baseline Time (real	0m0.823s)'
+echo 'Removing samples with less sequences than the rarefaction level ...'
+time filter_samples_from_otu_table.py -i $PROJECTDIR/otu_table_no_singletons2.biom -o $PROJECTDIR/otu_table.reduced.biom -n $RAREFACTION_VALUE
+
+echo -e '\n--------------------------- STEP #2-2 ---------------------------'
+echo 'Baseline Time (real	0m52.645s)'
+echo 'parallel_multiple_rarefactions.py is now running ...'
+date +%r
+time parallel_multiple_rarefactions.py -i $PROJECTDIR/otu_table.reduced.biom -m 10 -x $RAREFACTION_VALUE -s $STEPVALUE -n 10 -O 7 -o $PROJECTDIR/adiv/rarefiedOTUtables 
+
+echo -e '\n--------------------------- STEP #2-3 ---------------------------'
+echo 'Baseline Time (real	1m2.615s)'
+echo 'parallel_alpha_diversity.py is now running ...'
+date +%r
+time parallel_alpha_diversity.py -i $PROJECTDIR/adiv/rarefiedOTUtables -m chao1,goods_coverage,observed_species,shannon,simpson,PD_whole_tree -o $PROJECTDIR/adiv/adivtables -O 7 -t $PROJECTDIR/rep_set.tre
+
+echo -e '\n--------------------------- STEP #2-4 ---------------------------'
+echo 'Baseline Time (real	0m0.771s)'
+echo 'collate_alpha.py is now running ...'
+date +%r
+time collate_alpha.py -i $PROJECTDIR/adiv/adivtables -o $PROJECTDIR/adiv/collatedalpha
+
+echo -e '\n--------------------------- 2-5 ---------------------------'
+echo 'Baseline Time (real	0m0.771s)'
+echo 'make_rarefaction_plots.py is now running ...'
+date +%r
+time make_rarefaction_plots.py -i $PROJECTDIR/adiv/collatedalpha -m $MAPPINGFILE -o $PROJECTDIR/adiv
+
+echo -e '\n--------------------------- STEP #2-6 ---------------------------'
+echo 'Baseline Time (real	0m31.285s)'
+echo 'jackknifed_beta_diversity.py is now running ...'
+date +%r
+time jackknifed_beta_diversity.py -i $PROJECTDIR/otu_table.reduced.biom -t $PROJECTDIR/rep_set.tre -m $MAPPINGFILE -o $PROJECTDIR/jackbdiv -f -e $RAREFACTION_VALUE
+
+
+echo -e '\n--------------------------- STEP #2-7 ---------------------------'
+echo 'Baseline Time (real	0m0.509s)'
+echo 'make_bootstrapped_tree.py is now running ...'
+time make_bootstrapped_tree.py -m $PROJECTDIR/jackbdiv/unweighted_unifrac/upgma_cmp/master_tree.tre -s $PROJECTDIR/jackbdiv/unweighted_unifrac/upgma_cmp/jackknife_support.txt -o $PROJECTDIR/jackbdiv/unweighted_unifrac/upgma_cmp/jackknife_named_nodes.pdf
+
+echo -e '\n--------------------------- STEP #2-8 ---------------------------'
+echo 'Baseline Time (real	0m1.814s)'
+echo 'single_rarefaction.py is now running ...'
+date +%r
+time single_rarefaction.py -i $PROJECTDIR/otu_table.reduced.biom -o $PROJECTDIR/rarefiedOTUtablereduced.biom -d $RAREFACTION_VALUE
+
+echo -e '\n--------------------------- STEP #2-9 ---------------------------'
+echo 'Baseline Time (real	0m0.449s)'
+echo 'biom convert is now running ...'
+date +%r
+rm -f $PROJECTDIR/rarefiedOTUtablereduced.txt
+time biom convert -i $PROJECTDIR/rarefiedOTUtablereduced.biom -o $PROJECTDIR/rarefiedOTUtablereduced.txt -b --table-type "otu table" --header-key "taxonomy"
+
+COMMENT
+
+echo -e '\n--------------------------- STEP #2-10 ---------------------------'
+echo 'Baseline Time (real	0m26.850s)'
+echo 'summarize_taxa.py is now running ...'
+time summarize_taxa.py -i $PROJECTDIR/rarefiedOTUtablereduced.biom -o $PROJECTDIR/taxasummary/absolutecounts -L 1,2,3,4,5,6,7 -a
+
+
+# Based on information found on qiime forums, attempting to downgrade matlab to fix an issue:
+# sudo pip install 'matplotlib==1.4.3'
+echo -e '\n--------------------------- STEP #2-11 ---------------------------'
+echo 'Baseline Time (real	0m1.850s)'
+echo 'summarize_taxa_through_plots.py is now running ...'
+date +%r
+time summarize_taxa_through_plots.py -i $PROJECTDIR/rarefiedOTUtablereduced.biom -o $PROJECTDIR/taxasummaryplots/BySample -m $MAPPINGFILE -f
+
+echo -e '\n--------------------------- STEP #2-12 ---------------------------'
+echo 'Baseline Time (real	0m1.850s)'
+echo 'compute_core_microbiome.py is now running ...'
+date +%r
+time compute_core_microbiome.py -i $PROJECTDIR/rarefiedOTUtablereduced.biom -o $PROJECTDIR/CoreMicrobiome/AllSamples
+
+echo -e '\n--------------------------- Step 2-13 ---------------------------'
+echo "Plotting quality scores of merged split libraries (Baseline Time:	real 300m12.231s)"
+date +%r
+time quality_scores_plot.py -q $PROJECTDIR/SplitLibraries/fastaqual/seqs.qual -o $PROJECTDIR/SplitLibraries/fastaqual
+echo -e "\n*** Quality plotting  COMPLETE ***"
+
+echo -e '\n\n'
+echo '#############################################################'
+echo "#####          Analyst's Attention is Required          #####"
+echo '#############################################################'
+
+
+echo -e '\n**** Analyst must review output.\n'
+
+read -p "Hit enter when ready to tar and gzip the entire output: " 
+
+tar -zcvf $PROJECTDIR.tar.gz $PROJECTDIR
+
+
