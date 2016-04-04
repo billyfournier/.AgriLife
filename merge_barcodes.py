@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # file merge_barcodes.py
 '''
-Reintegrates barcodes from a barcodes.fastq file back into the merged.fastq file. 
+Reintegrates the output from extract_barcodes.py (barcodes.fastq) back into a fastq file, such as merged.fastq.   
 '''
 __author__ = "Billy Fournier"
 __license__ = "GPL"
