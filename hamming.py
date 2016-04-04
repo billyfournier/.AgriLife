@@ -35,27 +35,9 @@ genRandomNucleoSequence(25,2)
 
 # I need a function to analysize a single string for barcode
 
-# This section of code is to read in the file.
-seq = False	
-with open("test") as f:
-	for line in f:	
-		string = f.readline().splitlines()
-		if string[0] is ">": seq = True
-		if string[0] is "+": seq = False
-		if string[0] not "+" and string[0] not ">":
-			if seqs is True:
-			
-#string = seqFile.readline()
-print string
-stringLen = len(string)
-print "stringLen: %s" % stringLen
-testString1 = ["abc"]
-print 'test'
-print len(string)
-for i in range(len(string)- stringLen):
-	testString2 = string[i:i+stringLen]
-	print hammingDistance(testString1,testString2)
-	print i
+with open("test") as fastq:
+	for line in fastq:
+		
 
 	
 
