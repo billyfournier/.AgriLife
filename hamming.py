@@ -21,13 +21,15 @@ import random
 def genRandomNucleoSequence(seqLength,numOfSeqs):
 	nucleo = ['a', 't', 'c', 'g']
 	text_file = open("test", "w")
-	text_file.write(">\n")
+	text_file.write("@\n")
 	for i in range(numOfSeqs):
+		text_file.write("gattag")
 		for j in range(seqLength):
 			text_file.write(random.choice(nucleo))
+		text_file.write("taggat")
 		text_file.write("\n")
 	text_file.write("+\n")
-	text_file.write(">\n")
+	text_file.write("@\n")
 	text_file.close()
 
 genRandomNucleoSequence(25,2)
@@ -35,9 +37,26 @@ genRandomNucleoSequence(25,2)
 
 # I need a function to analysize a single string for barcode
 
-with open("test") as fastq:
-	for line in fastq:
-		
+primers = ["gattag","taggat"]
 
+largestPrimer = max(len(str) for str in primers)
+
+def removePrimers(inFile,outFile,primerList,tolerance):
+	items = ["@","+"]	
+	with open(inFile) as input, open(outFile,"w") as output:
+		for line in input:
+			if line[0] in items:
+				output.write(line)
+			else:
+				str = line
+				indexList = []
+				for primer in primers:
+					length = len(primer)
+					for i in range(len(str)-length):
+						window = str[i:i+length]
+						if hammingDistance(window,primer) <= tolerance:
+							indexList.append(i+length)
+				if len(indexList) is 2:
+					output.write(str[indexList[0]:indexList[1]] + "\n") 
 	
-
+removePrimers("test","testout",primers,0)
