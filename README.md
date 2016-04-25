@@ -1,2 +1,2 @@
 # AgriLife
-Files used at AgriLife
+Eukaryotic sequence analysis pipeline
