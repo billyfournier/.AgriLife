@@ -1,0 +1,713 @@
+#!/bin/bash
+
+#This is a paired end workflow for the prokaryotic primers CAGCMGCCGCGGTAA and TACNVGGGTATCTAATCC that uses usearch for to merge reads and length filters based on read quality before merging
+#You will need to enter the Dataset name and your name before running the analysis.
+
+DATASET_NAME=Bell.12.21.2015
+MY_NAME=JeffBrady
+
+
+DATE=$(date +".%m.%d.%Y")
+## BE SURE to update 1, 2 , 3, 4 below and ensure they are correct.
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#1# 	PATH to the Raw Data you are analysing on the Storage drive  
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+DATASTORAGEDIR=/media/STORAGE/DATA_SETS/$DATASET_NAME
+#DATASTORAGEDIR=/media/jeff/STORAGE/DATA_SETS/$DATASET_NAME
+
+
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#2# 	PATH to "your" Analysis director EXAMPLE: $HOME/Analysis/YourName
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+WORKDIR=$HOME/Analysis/$DATASET_NAME
+
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#3# 	PATH to Project directory EXAMPLE: $WORKDIR/DataSetName_TodaysDate
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+export PROJECTDIR=$WORKDIR/$MY_NAME$DATE.All
+#PROJECTDIR=$WORKDIR/$PROJECT_NAME    This needs some consideration
+
+
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#4#  	PATH to Drive5 scripts
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~
+DRIVE5STORAGE=/media/STORAGE/drive5
+
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#4#  	PATH to python scripts
+###~~~~~~~~~~~~~~~~~~~~~~~~~~~
+PYTHONSTORAGE=/media/STORAGE/python
+
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+
+
+#PATH to Raw Data
+DATADIR=$PROJECTDIR/DATA
+#PATH to Usearch Output
+USEARCHDIR=$PROJECTDIR/Usearch_Output
+SCRIPTSDIR=$PROJECTDIR/scripts
+mkdir -p $WORKDIR
+mkdir -p $PROJECTDIR
+mkdir -p $DATADIR
+mkdir -p $USEARCHDIR
+mkdir -p $SCRIPTSDIR
+
+function file_check
+{
+
+}
+
+
+
+####  PIPLELINE LOG file setup  ####
+LOGFILE="$PROJECTDIR/pipeline.log"
+touch $LOGFILE
+exec >  >(tee $LOGFILE)
+exec 2>&1
+echo Log Start
+date +%r
+
+find $DRIVE5STORAGE -type f -name 'fasta_number.py' -exec cp {} $SCRIPTSDIR/ \;
+find $DRIVE5STORAGE -type f -name 'die.py' -exec cp {} $SCRIPTSDIR/ \;
+find $DRIVE5STORAGE -type f -name 'uc2otutab_mod.py' -exec cp {} $SCRIPTSDIR/ \;
+find $DRIVE5STORAGE -type f -name 'uc.py' -exec cp {} $SCRIPTSDIR/ \;
+find $DRIVE5STORAGE -type f -name 'progress.py' -exec cp {} $SCRIPTSDIR/ \;
+find $DRIVE5STORAGE -type f -name 'fasta.py' -exec cp {} $SCRIPTSDIR/ \;
+find $PYTHONSTORAGE -type f -name 'remove_unused_barcodes.py' -exec cp {} $SCRIPTSDIR/ \;
+find $PYTHONSTORAGE -type f -name 'fastqCombinePairedEnd.py' -exec cp {} $SCRIPTSDIR/ \;
+find /media/STORAGE/DATA_SETS -type f -name 'ReadMe.txt' -exec cp {} $PROJECTDIR/ \;
+find $DATASTORAGEDIR -type f -name 'primers.fasta' -exec cp {} $DATADIR/ \;
+
+# Finding gold.fasta
+
+if [ "$(find /media/STORAGE/drive5 -type f -name '*gold.fasta*')" ]; then
+	echo ''    
+	echo "gold.fasta has been found."
+	GOLDFASTA=`find /media/STORAGE/drive5 -type f -name '*gold.fasta*'`
+	echo "gold.fasta is located at $GOLDFASTA"
+	echo ''
+else    
+	echo -e "\n++++++++ WARNING: gold.fasta not found. ++++++++++++"
+	echo 'gold.fasta not found'
+	echo 'Downloading gold.fasta'	
+	wget -O /media/STORAGE/drive5/gold.fasta -nc http://drive5.com/uchime/gold.fa
+	exit 1
+fi
+
+if [ $? -ne 0]; then
+fi
+
+####   NEED TO IDENTIFY FILES TO DO A PRE-CHECK On   ####
+#### 		ALSO NEED TO IDENTIFY FILES THAT CAN BE CLEANED AFTER USE	####
+	
+#############
+wget -nc  -O $PROJECTDIR/lanemask_in_1s_and_0s https://github.com/billyfournier/.AgriLife/raw/master/lanemask_in_1s_and_0s
+find $PROJECTDIR -name lanemask_in_1s_and_0s > /dev/null 2>&1
+if [ $? -ne 0]; then
+	echo "Could not find lanemask_in_1s_and_0s"
+	exit 1
+fi
+#############
+wget -nc -O $SCRIPTSDIR/merge_barcodes.py https://github.com/billyfournier/.AgriLife/raw/master/merge_barcodes.py
+find $PROJECTDIR -name merge_barcodes.py > /dev/null 2>&1
+if [ $? -ne 0]; then
+	echo "Could not find merge_barcodes.py"
+	exit 1
+fi
+#############
+find /usr/local -name 97_otus.fasta | grep . > /dev/null 2>&1
+if [ $? -ne 0]; then
+	echo "Could not find 97_otus.fasta"
+	exit 1
+fi
+#############
+find /usr/local -name 97_otu_taxonomy.txt | grep . > /dev/null 2>&1
+if [ $? -ne 0]; then
+	echo "Could not find 97_otu_taxonomy.txt"
+	exit 1
+fi
+#############
+find /usr/local -name rdp_classifier-2.2.jar | grep . > /dev/null 2>&1
+if [ $? -ne 0]; then
+	echo "Could not find rdp_classifier-2.2.jar"
+	exit 1
+fi
+############
+
+printf '\n\n'
+sleep 1
+
+
+################################################
+# Copying index1 to the working data directory #
+################################################
+if [ "$(find $DATADIR -type f -name '*index1*')" ]; then
+	echo ''    
+	echo "***WARNING: index1 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -type f -name '*_I1_*' -exec cp {} $DATADIR/index1.fastq.gz \;
+	echo ''    
+	echo "index1 has been copied to $DATADIR"
+fi
+sleep 1
+
+################################################
+# Copying index2 to the working data directory #
+################################################
+if [ "$(find $DATADIR -type f -name '*index2*')" ]; then
+	echo ''    
+	echo "***WARNING: index2 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -type f -name '*_I2_*' -exec cp {} $DATADIR/index2.fastq.gz \;
+	echo ''    
+	echo "index2 has been copied to $DATADIR"
+fi
+sleep 1
+
+###############################################
+# Copying read1 to the working data directory #
+###############################################
+if [ "$(find $DATADIR -type f -name '*read1*')" ]; then
+	echo ''    
+	echo "***WARNING: read1 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -maxdepth 1 -type f -name '*_R1_*' -exec cp {} $DATADIR/read1.fastq.gz \;
+	echo ''    
+	echo "read1 has been copied to $DATADIR"
+fi
+sleep 1
+
+###############################################
+# Copying read2 to the working data directory #
+###############################################
+if [ "$(find $DATADIR -type f -name '*read2*')" ]; then
+	echo ''    
+	echo "***WARNING: read2 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -maxdepth 1 -type f -name '*_R2_*' -exec cp {} $DATADIR/read2.fastq.gz \;
+	echo ''    
+	echo "read2 has been copied to $DATADIR"
+fi
+sleep 10
+
+##########################################################
+# Copying the mapping file to the working data directory #
+##########################################################
+if [ "$(find $DATADIR -type f -iname '*mapping*')" ]; then
+	echo ''  
+	MAPPINGFILE=`find $DATADIR -type f -iname '*mapping*'`  
+	echo "***WARNING: Mapping File has already been copied to $MAPPINGFILE"
+else	
+	find $DATASTORAGEDIR -type f -iname '*mapping*' -exec cp {} $DATADIR/ \;
+	MAPPINGFILE=`find $DATADIR -type f -iname '*mapping*'`
+	echo ''    
+	echo "Mapping File has been copied to $MAPPINGFILE"
+
+fi
+sleep 1
+
+echo ''
+echo "Unzipping files in *** $DATADIR ***"
+gunzip $DATADIR/index1.fastq.gz
+echo "gunzip 1 of 4 COMPLETE"
+gunzip $DATADIR/index2.fastq.gz
+echo "gunzip 2 of 4 COMPLETE"
+gunzip $DATADIR/read1.fastq.gz
+echo "gunzip 3 of 4 COMPLETE"
+gunzip $DATADIR/read2.fastq.gz
+echo "gunzip 4 of 4 COMPLETE"
+
+########################################################################################
+########################################################################################
+########################################################################################
+
+# Start Steps Here
+
+
+# This is the timer for Part 1 of this script.
+time {
+
+
+<< COMMENT
+COMMENT
+
+
+echo -e '\n--------------------------- Step 1 ---------------------------'
+echo 'Counting Index 1 (BASELINE TIME: real 2m30.680s)'
+date +%r
+time count_seqs.py -i $DATADIR/index1.fastq
+
+echo -e '\n--------------------------- Step 2 ---------------------------'
+echo 'Counting Index 2 (BASELINE TIME: real 2m30.680s)'
+time count_seqs.py -i $DATADIR/index2.fastq
+
+echo -e '\n--------------------------- Step 3 ---------------------------'
+echo 'Counting Read 1 (BASELINE TIME: real 3m20.000s)'
+time count_seqs.py -i $DATADIR/read1.fastq
+
+echo -e '\n--------------------------- Step 4 ---------------------------'
+echo 'Counting Read 2 (BASELINE TIME: real 3m20.000s)'
+time count_seqs.py -i $DATADIR/read2.fastq
+
+
+# output /barcodes
+echo -e '\n--------------------------- Step 5 ---------------------------'
+echo -e '\nExtracting Barcodes (BASELINE TIME: real 19m51.680s)'
+date +%r
+time extract_barcodes.py -f $DATADIR/index1.fastq -r $DATADIR/index2.fastq -c barcode_paired_end --bc1_len 6 --bc2_len 6 -o $PROJECTDIR/barcodes --rev_comp_bc1
+echo -e '\nExtracting Barcodes COMPLETE'
+
+echo -e '\n--------------------------- Step 6 ---------------------------'
+echo 'Counting extracted barcode sequences (BASELINE TIME: real 2m48.680s)'
+time count_seqs.py -i $PROJECTDIR/barcodes/barcodes.fastq
+
+
+	### Printing top 10 lines of file barcodes.fastq.
+echo -e '\n--------------------------- Step 7 ---------------------------'
+echo -e '\nTop 10 lines of the barcodes.fastq for inspection purposes'
+head -n 10 $PROJECTDIR/barcodes/barcodes.fastq 
+echo -e "\n*** Head complete ***\n\n"
+
+### Splitting libraries on read 1
+echo -e '\n--------------------------- Step 8 ---------------------------'
+echo 'Splitting libraries on read 1 (BASELINE TIME: real 22m48.680s)'
+date +%r
+time split_libraries_fastq.py -m $MAPPINGFILE --barcode_type 12 -b $PROJECTDIR/barcodes/barcodes.fastq -i $DATADIR/read1.fastq -o $PROJECTDIR/SplitLibrariesRead1 -n 300 -q 0 -p 0.01 -r 300 --store_demultiplexed_fastq
+echo -e "\n*** Splitting libraries on read 1 COMPLETE ***"
+
+### Quality metrics
+echo -e '\n--------------------------- Step 9 ---------------------------'
+echo 'Checking quality metrics of read 1 (BASELINE TIME: real 22m48.680s)'
+date +%r
+usearch8.0.1 -fastq_eestats $PROJECTDIR/SplitLibrariesRead1/seqs.fastq -output $PROJECTDIR/SplitLibrariesRead1/read1eestats.txt
+echo -e "\n*** EEstats on read 1 COMPLETE ***"
+
+### Splitting libraries on read 2
+echo -e '\n--------------------------- Step 10 ---------------------------'
+echo 'Splitting libraries on read 2(BASELINE TIME: real 22m48.680s)'
+date +%r
+time split_libraries_fastq.py -m $MAPPINGFILE --barcode_type 12 -b $PROJECTDIR/barcodes/barcodes.fastq -i $DATADIR/read2.fastq -o $PROJECTDIR/SplitLibrariesRead2 -n 300 -q 0 -p 0.01 -r 300 --store_demultiplexed_fastq
+echo -e "\n*** Splitting libraries on read 2 COMPLETE ***"
+
+### Quality metrics
+echo -e '\n--------------------------- Step 11 ---------------------------'
+echo 'Checking quality metrics of read 2 (BASELINE TIME: real 22m48.680s)'
+date +%r
+usearch8.0.1 -fastq_eestats $PROJECTDIR/SplitLibrariesRead2/seqs.fastq -output $PROJECTDIR/SplitLibrariesRead2/read2eestats.txt
+echo -e "\n*** EEstats on read 2 COMPLETE ***"
+
+# This is the end of the Timer for Part 1 of this script.
+echo -e '\n\n *** The Following Timestamp is for the script up to this point. ***'
+date +%r
+
+
+
+echo -e '\n\n'
+echo '#############################################################'
+echo "#####          Analyst's Attention is Required          #####"
+echo '#############################################################'
+
+gedit $PROJECTDIR/SplitLibrariesRead1/read1eestats.txt  & disown
+gedit $PROJECTDIR/SplitLibrariesRead2/read2eestats.txt  & disown
+
+echo -e '\n**** Analyst must review the read1eestats.txt and read2eestats.txt files and determine the appropriate read 1 and read 2 truncation lengths.\n'
+echo "**** read1eestats.txt can be found at $PROJECTDIR/SplitLibrariesRead1/read1eestats.txt"
+echo "**** read2eestats.txt can be found at $PROJECTDIR/SplitLibrariesRead2/read2eestats.txt"
+echo -e '\n**** Once the truncation lengths are determined enter the value below.\n'
+
+read -p "Enter Read 1 truncation length Here: " READ1TRUNCATION_LENGTH
+read -p "Enter Read 2 truncation length Here: " READ2TRUNCATION_LENGTH
+
+### Length truncation of read 1 
+echo -e '\n--------------------------- Step 12 ---------------------------'
+echo "Truncating read 1 length (Baseline Time: real 1m30.634s )"
+date +%r
+usearch7.0.1 -fastq_filter $PROJECTDIR/SplitLibrariesRead1/seqs.fastq -fastq_trunclen $READ1TRUNCATION_LENGTH -fastqout $PROJECTDIR/SplitLibrariesRead1/truncseqs.fastq
+
+### Length truncation of read 2 
+echo -e '\n--------------------------- Step 13 ---------------------------'
+echo "Truncating read 2 length (Baseline Time: real 1m30.634s )"
+date +%r
+usearch7.0.1 -fastq_filter $PROJECTDIR/SplitLibrariesRead2/seqs.fastq -fastq_trunclen $READ2TRUNCATION_LENGTH -fastqout $PROJECTDIR/SplitLibrariesRead2/truncseqs.fastq
+
+echo -e '\n--------------------------- Step 14 ---------------------------'
+echo -e 'Repairing read 1 sequence labels after splitting libraries  (BASELINE TIME: real	0m41.506s)'
+time sed 's/orig_bc=.*//g' <$PROJECTDIR/SplitLibrariesRead1/truncseqs.fastq >$PROJECTDIR/SplitLibrariesRead1/seqs2.fastq
+
+time sed 's/^.*M01451/@M01451/' <$PROJECTDIR/SplitLibrariesRead1/seqs2.fastq >$PROJECTDIR/SplitLibrariesRead1/seqs3.fastq
+
+echo -e '\n--------------------------- Step 15 ---------------------------'
+echo -e 'Repairing read 2 sequence labels after splitting libraries  (BASELINE TIME: real	15m41.506s)'
+time sed 's/orig_bc=.*//g' <$PROJECTDIR/SplitLibrariesRead2/truncseqs.fastq >$PROJECTDIR/SplitLibrariesRead2/seqs2.fastq
+
+time sed 's/^.*M01451/@M01451/' <$PROJECTDIR/SplitLibrariesRead2/seqs2.fastq >$PROJECTDIR/SplitLibrariesRead2/seqs3.fastq
+
+echo -e '\n--------------------------- Step 16 ---------------------------'
+echo -e 'Cleaning up single reads from read 1 and read 2   (BASELINE TIME: real	15m41.506s)'
+date +%r
+time python $SCRIPTSDIR/fastqCombinePairedEnd.py $PROJECTDIR/SplitLibrariesRead1/seqs3.fastq $PROJECTDIR/SplitLibrariesRead2/seqs3.fastq
+echo 'Cleaning up single reads --COMPLETE--'
+
+
+
+echo -e '\n--------------------------- Step 17 ---------------------------'
+echo -e 'Joining paired end reads with usearch   (BASELINE TIME: real	3m30.506s)'
+date +%r
+usearch7.0.1 -fastq_mergepairs $PROJECTDIR/SplitLibrariesRead1/seqs3.fastq_pairs_R1.fastq -reverse $PROJECTDIR/SplitLibrariesRead2/seqs3.fastq_pairs_R2.fastq -fastqout $USEARCHDIR/merged.fastq
+echo 'Joining Paired Ends --COMPLETE--'
+
+
+echo -e '\n--------------------------- Step 18 ---------------------------'
+echo -e 'Removing unused barcodes  (BASELINE TIME: real	1m31.506s)'
+date +%r
+time python $SCRIPTSDIR/remove_unused_barcodes.py $PROJECTDIR/barcodes/barcodes.fastq $USEARCHDIR/merged.fastq $USEARCHDIR/mergedbarcodes.fastq
+echo 'Removing unused barcodes --COMPLETE--'
+
+
+echo -e '\n--------------------------- Step 19 ---------------------------'
+echo 'count_seqs.py Starting	(BASELINE TIME: real	1m31.506s / each)'
+date +%r
+#Check the numbers of what's left after joining:
+time count_seqs.py -i $USEARCHDIR/merged.fastq
+time count_seqs.py -i $USEARCHDIR/mergedbarcodes.fastq
+
+
+
+
+echo -e '\n--------------------------- Step 20 ---------------------------'
+echo 'Combining barcode and merged reads into one sequence	(BASELINE TIME: real	1m31.506s / each)'
+wget -nc -O $SCRIPTSDIR/merge_barcodes.py https://github.com/billyfournier/.AgriLife/raw/master/merge_barcodes.py
+
+
+
+time python $SCRIPTSDIR/merge_barcodes.py -m $USEARCHDIR/merged.fastq -b $USEARCHDIR/mergedbarcodes.fastq -o $USEARCHDIR/mergedbarcodesandseqs.fastq 
+echo 'Combining barcode and merged reads --COMPLETE--'
+
+
+
+echo -e '\n--------------------------- Step 21 ---------------------------'
+echo 'Converting fastq to fasta and qual files, this will take a while	(BASELINE TIME: real	1m31.506s / each)'
+date +%r
+time convert_fastaqual_fastq.py -c fastq_to_fastaqual -F -o $USEARCHDIR -f $USEARCHDIR/mergedbarcodesandseqs.fastq 
+echo 'Fastq conversion --COMPLETE--'
+
+
+
+echo -e '\n--------------------------- Step 22 ---------------------------'
+echo -e 'Splitting libraries to remove primers/adapters  (BASELINE TIME: real	15m41.506s)'
+time split_libraries.py -m $MAPPINGFILE -f $USEARCHDIR/mergedbarcodesandseqs.fna -q $USEARCHDIR/mergedbarcodesandseqs.qual -o $PROJECTDIR/Split_Library_Output -l 100 --trim_seq_length -b 12 --max_primer_mismatch 3 -z truncate_remove --reverse_primer_mismatches 3 --record_qual_scores
+
+
+
+
+# Baseline Time (REAL: )
+echo -e '\n--------------------------- Step 23 ---------------------------'
+
+echo -e '\n--Checking for primers/adapters in $USEARCHDIR/merged.fastq -----------'
+
+echo -e '\nForward prok primer'
+grep -c CAGC.GCCGCGGTAA $USEARCHDIR/merged.fastq
+
+echo -e '\nForward prok primer reverse complement'
+grep -c TTACCGCGGC.GCTG $USEARCHDIR/merged.fastq
+
+echo -e '\nReverse prok primer'
+grep -c TAC..GGGTATCTAATCC $USEARCHDIR/merged.fastq
+
+echo -e '\nReverse prok primer reverse complement'
+grep -c GGATTAGATACCC..GTA $USEARCHDIR/merged.fastq
+
+echo -e '\nAdapter sequence'
+grep -c AGATGTGTATAAGAGACAG $USEARCHDIR/merged.fastq
+
+echo -e '\nAdapter sequence reverse complement'
+grep -c CTGTCTCTTATACACATCT $USEARCHDIR/merged.fastq
+
+
+# Baseline Time (REAL: )
+echo -e '\n--------------------------- Step 24 ---------------------------'
+
+echo -e '\n--Checking for primers/adapters in Split_Library_Output/seqs.fna -----------'
+
+echo -e '\nForward prok primer'
+grep -c CAGC.GCCGCGGTAA $PROJECTDIR/Split_Library_Output/seqs.fna
+
+echo -e '\nForward prok primer reverse complement'
+grep -c TTACCGCGGC.GCTG $PROJECTDIR/Split_Library_Output/seqs.fna
+
+echo -e '\nReverse prok primer'
+grep -c TAC..GGGTATCTAATCC $PROJECTDIR/Split_Library_Output/seqs.fna
+
+echo -e '\nReverse prok primer reverse complement'
+grep -c GGATTAGATACCC..GTA $PROJECTDIR/Split_Library_Output/seqs.fna
+
+echo -e '\nAdapter sequence'
+grep -c AGATGTGTATAAGAGACAG $PROJECTDIR/Split_Library_Output/seqs.fna
+
+echo -e '\nAdapter sequence reverse complement'
+grep -c CTGTCTCTTATACACATCT $PROJECTDIR/Split_Library_Output/seqs.fna
+
+
+
+# Baseline Time (REAL: )
+echo -e '\n--------------------------- Step 25 ---------------------------'
+
+echo -e '\n--Continued primer/adapter stripping from Split_Library_Output/seqs.fna -----------'
+time sed -i 's/CAGC.GCCGCGGTAA//g' $PROJECTDIR/Split_Library_Output/seqs.fna
+time sed -i 's/TTACCGCGGC.GCTG//g' $PROJECTDIR/Split_Library_Output/seqs.fna
+time sed -i 's/TAC..GGGTATCTAATCC//g' $PROJECTDIR/Split_Library_Output/seqs.fna
+time sed -i 's/GGATTAGATACCC..GTA//g' $PROJECTDIR/Split_Library_Output/seqs.fna
+time sed -i 's/AGATGTGTATAAGAGACAG//g' $PROJECTDIR/Split_Library_Output/seqs.fna
+time sed -i 's/CTGTCTCTTATACACATCT//g' $PROJECTDIR/Split_Library_Output/seqs.fna
+
+time sed -i 's/CAGC.GCCGCGGTAA//g' $PROJECTDIR/Split_Library_Output/seqs.fna
+time sed -i 's/TTACCGCGGC.GCTG//g' $PROJECTDIR/Split_Library_Output/seqs.fna
+time sed -i 's/TAC..GGGTATCTAATCC//g' $PROJECTDIR/Split_Library_Output/seqs.fna
+time sed -i 's/GGATTAGATACCC..GTA//g' $PROJECTDIR/Split_Library_Output/seqs.fna
+time sed -i 's/AGATGTGTATAAGAGACAG//g' $PROJECTDIR/Split_Library_Output/seqs.fna
+time sed -i 's/CTGTCTCTTATACACATCT//g' $PROJECTDIR/Split_Library_Output/seqs.fna
+
+# Baseline Time (REAL: )
+echo -e '\n--------------------------- Step 26 ---------------------------'
+
+echo -e '\n--One last check for primer/adapter contamination in Split_Library_Output/seqs.fna -----------'
+
+echo -e '\nForward prok primer'
+grep -c CAGC.GCCGCGGTAA $PROJECTDIR/Split_Library_Output/seqs.fna
+
+echo -e '\nForward prok primer reverse complement'
+grep -c TTACCGCGGC.GCTG $PROJECTDIR/Split_Library_Output/seqs.fna
+
+echo -e '\nReverse prok primer'
+grep -c TAC..GGGTATCTAATCC $PROJECTDIR/Split_Library_Output/seqs.fna
+
+echo -e '\nReverse prok primer reverse complement'
+grep -c GGATTAGATACCC..GTA $PROJECTDIR/Split_Library_Output/seqs.fna
+
+
+
+### Counting sequences.
+echo -e '\n--------------------------- Step 27 ---------------------------'
+echo -e '\nCounting sequences (BASELINE TIME: real 0m48.680s)'
+time count_seqs.py -i $PROJECTDIR/Split_Library_Output/seqs.fna
+
+
+
+
+
+OTUS_97=`find /usr/local -name 97_otus.fasta`
+# Baseline Time (REAL: 0m53.254s)
+echo -e '\n----------- STEP #28 -----------'
+echo 'OTU picking with uclust and GG13.8 as preferred OTUs'
+echo 'Baseline Time (REAL: 22m01.569s)'
+date +%r
+time parallel_pick_otus_uclust_ref.py -i $PROJECTDIR/Split_Library_Output/seqs.fna -r $OTUS_97 -o $PROJECTDIR/ucref97otus -s 0.97 -z -O 10
+echo ''
+
+
+
+echo '----------- STEP #29 -----------'
+echo 'Pick rep set'
+echo 'Baseline Time (REAL: 1m25.569s)'
+date +%r
+time pick_rep_set.py -i $PROJECTDIR/ucref97otus/seqs_otus.txt -f $PROJECTDIR/Split_Library_Output/seqs.fna -o $USEARCHDIR/rep_set.fna -m most_abundant
+echo ''
+
+
+
+OTUS_97=`find /usr/local -name 97_otus.fasta`
+OTU_TAX_97=`find /usr/local -name 97_otu_taxonomy.txt`
+RDP_PATH=`find /usr/local -name rdp_classifier-2.2.jar`
+echo '----------- STEP #30 -----------'
+echo 'Assign taxonomy with rdp  Baseline Time (REAL: 31m51.569s)'
+date +%r
+time parallel_assign_taxonomy_rdp.py --rdp_max_memory 4000 --rdp_classifier_fp $RDP_PATH -i $USEARCHDIR/rep_set.fna -o $PROJECTDIR/assigned_taxonomy -t $OTU_TAX_97 -r $OTUS_97 -O 7
+
+echo '----------- STEP #31 -----------'
+echo 'Make .biom table'
+date +%r
+time make_otu_table.py -i $PROJECTDIR/ucref97otus/seqs_otus.txt -t $PROJECTDIR/assigned_taxonomy/rep_set_tax_assignments.txt -o $PROJECTDIR/otu_table.biom
+echo ''
+
+echo '----------- STEP #32 -----------'
+echo 'Make an OTU .txt table'
+date +%r
+time biom convert -i $PROJECTDIR/otu_table.biom -o $PROJECTDIR/otu_table.txt --table-type "OTU table" --header-key "taxonomy" --to-tsv
+
+
+echo '----------- STEP #33 -----------'
+echo 'Chimera filtering'
+echo 'Baseline Time (REAL: fast)'
+date +%r
+usearch7.0.1 -uchime_ref $USEARCHDIR/rep_set.fna -db $GOLDFASTA -strand plus -nonchimeras $USEARCHDIR/rep_set_nochimeras.fna -chimeras $USEARCHDIR/rep_set_chimeras.fna
+echo ''
+
+echo '----------- STEP #34 -----------'
+echo 'Filter singletons from OTU table'
+date +%r
+time filter_otus_from_otu_table.py -i $PROJECTDIR/otu_table.biom -o $PROJECTDIR/otu_table_no_chimeras_no_singletons.biom -n 2 -e $USEARCHDIR/rep_set_chimeras.fna
+
+
+echo '----------- STEP #35 -----------'
+echo 'Make an OTU .txt table'
+date +%r
+time biom convert -i $PROJECTDIR/otu_table_no_chimeras_no_singletons.biom -o $PROJECTDIR/otu_table_no_chimeras_no_singletons.txt --table-type "OTU table" --header-key "taxonomy" --to-tsv
+
+
+echo '----------- STEP #36 -----------'
+echo 'Filtering singletons from rep set'
+date +%r
+filter_fasta.py -f $USEARCHDIR/rep_set_nochimeras.fna -o $USEARCHDIR/rep_set_nochimeras_no_singletons.fna -b $PROJECTDIR/otu_table_no_chimeras_no_singletons.biom
+
+# Baseline Time (REAL: real	0m39.119s)
+echo '----------- STEP #37 -----------'
+echo 'Align seqs'
+date +%r
+time parallel_align_seqs_pynast.py -i $USEARCHDIR/rep_set_nochimeras_no_singletons.fna -o $PROJECTDIR/pynast_aligned_defaults -O 7
+
+
+wget -nc  -O $PROJECTDIR/lanemask_in_1s_and_0s https://github.com/billyfournier/.AgriLife/raw/master/lanemask_in_1s_and_0s
+# Memory intensive (Will Most likely use all the memory you can throw at it)
+echo -e '\n----------- STEP #38 -----------'
+echo 'Filter alignment (REAL: 7m23.578s)'
+date +%r
+time filter_alignment.py -i $PROJECTDIR/pynast_aligned_defaults/rep_set_nochimeras_no_singletons_aligned.fasta -m $PROJECTDIR/lanemask_in_1s_and_0s -o $PROJECTDIR/pynast_aligned_defaults
+
+# Baseline Time (REAL: 0m16.053s)
+echo -e '\n----------- STEP #39 -----------'
+echo 'Make Phylogeny'
+date +%r
+time make_phylogeny.py -i $PROJECTDIR/pynast_aligned_defaults/rep_set_nochimeras_no_singletons_aligned_pfiltered.fasta -o $PROJECTDIR/rep_set.tre
+
+echo -e '\n--------------------------- STEP #40 ---------------------------'
+echo 'Baseline Time (real	0m0.189s)'
+echo 'biom summarize-table now running ...'
+rm -f $PROJECTDIR/stats.txt
+time biom summarize-table -i $PROJECTDIR/otu_table_no_chimeras_no_singletons.biom -o $PROJECTDIR/stats.txt
+
+
+echo -e '\n\n'
+echo '#############################################################'
+echo "#####          Analyst's Attention is Required          #####"
+echo '#############################################################'
+
+gedit $PROJECTDIR/stats.txt  & disown
+
+echo -e '\n**** Analyst must review the stats.txt file and determin the appropriate rarefaction level.\n'
+echo "**** stats.txt can be found at $PROJECTDIR/stats.txt"
+echo -e '\n**** Once the rarefaction level is determined enter the value below.\n'
+
+read -p "Enter Rarefaction Value Here: " RAREFACTION_VALUE
+
+A=`expr $RAREFACTION_VALUE - 10`
+STEPVALUE=`expr $A / 10`
+echo "STEPVALUE is: $STEPVALUE"
+
+
+echo -e '\n--------------------------- STEP #2-1 ---------------------------'
+echo 'Baseline Time (real	0m0.823s)'
+echo 'Removing samples with less sequences than the rarefaction level ...'
+time filter_samples_from_otu_table.py -i $PROJECTDIR/otu_table_no_chimeras_no_singletons.biom -o $PROJECTDIR/otu_table_reduced.biom -n $RAREFACTION_VALUE
+
+echo '----------- STEP #2-2 -----------'
+echo 'Make an OTU .txt table'
+date +%r
+time biom convert -i $PROJECTDIR/otu_table_reduced.biom -o $PROJECTDIR/otu_table_reduced.txt --table-type "OTU table" --header-key "taxonomy" --to-tsv
+
+
+echo -e '\n--------------------------- STEP #2-3 ---------------------------'
+echo 'Baseline Time (real	0m52.645s)'
+echo 'parallel_multiple_rarefactions.py is now running ...'
+date +%r
+time parallel_multiple_rarefactions.py -i $PROJECTDIR/otu_table_reduced.biom -m 10 -x $RAREFACTION_VALUE -s $STEPVALUE -n 10 -O 7 -o $PROJECTDIR/adiv/rarefiedOTUtables 
+
+echo -e '\n--------------------------- STEP #2-4 ---------------------------'
+echo 'Baseline Time (real	1m2.615s)'
+echo 'parallel_alpha_diversity.py is now running ...'
+date +%r
+time parallel_alpha_diversity.py -i $PROJECTDIR/adiv/rarefiedOTUtables -m chao1,goods_coverage,observed_species,shannon,simpson,PD_whole_tree -o $PROJECTDIR/adiv/adivtables -O 7 -t $PROJECTDIR/rep_set.tre
+
+echo -e '\n--------------------------- STEP #2-5 ---------------------------'
+echo 'Baseline Time (real	0m0.771s)'
+echo 'collate_alpha.py is now running ...'
+date +%r
+time collate_alpha.py -i $PROJECTDIR/adiv/adivtables -o $PROJECTDIR/adiv/collatedalpha
+
+echo -e '\n--------------------------- 2-6 ---------------------------'
+echo 'Baseline Time (real	0m0.771s)'
+echo 'make_rarefaction_plots.py is now running ...'
+date +%r
+time make_rarefaction_plots.py -i $PROJECTDIR/adiv/collatedalpha -m $MAPPINGFILE -o $PROJECTDIR/adiv
+
+echo -e '\n--------------------------- STEP #2-7 ---------------------------'
+echo 'Baseline Time (real	0m31.285s)'
+echo 'jackknifed_beta_diversity.py is now running ...'
+date +%r
+time jackknifed_beta_diversity.py -i $PROJECTDIR/otu_table_reduced.biom -t $PROJECTDIR/rep_set.tre -m $MAPPINGFILE -o $PROJECTDIR/jackbdiv -f -e $RAREFACTION_VALUE
+
+
+echo -e '\n--------------------------- STEP #2-8 ---------------------------'
+echo 'Baseline Time (real	0m0.509s)'
+echo 'make_bootstrapped_tree.py is now running ...'
+time make_bootstrapped_tree.py -m $PROJECTDIR/jackbdiv/unweighted_unifrac/upgma_cmp/master_tree.tre -s $PROJECTDIR/jackbdiv/unweighted_unifrac/upgma_cmp/jackknife_support.txt -o $PROJECTDIR/jackbdiv/unweighted_unifrac/upgma_cmp/jackknife_named_nodes.pdf
+
+echo -e '\n--------------------------- STEP #2-9 ---------------------------'
+echo 'Baseline Time (real	0m1.814s)'
+echo 'single_rarefaction.py is now running ...'
+date +%r
+time single_rarefaction.py -i $PROJECTDIR/otu_table_reduced.biom -o $PROJECTDIR/rarefiedOTUtablereduced.biom -d $RAREFACTION_VALUE
+
+echo -e '\n--------------------------- STEP #2-10 ---------------------------'
+echo 'Baseline Time (real	0m0.449s)'
+echo 'biom convert is now running ...'
+date +%r
+rm -f $PROJECTDIR/rarefiedOTUtablereduced.txt
+time biom convert -i $PROJECTDIR/rarefiedOTUtablereduced.biom -o $PROJECTDIR/rarefiedOTUtablereduced.txt --table-type "OTU table" --header-key "taxonomy" --to-tsv
+
+
+echo -e '\n--------------------------- STEP #2-11 ---------------------------'
+echo 'Baseline Time (real	0m26.850s)'
+echo 'summarize_taxa.py is now running ...'
+time summarize_taxa.py -i $PROJECTDIR/rarefiedOTUtablereduced.biom -o $PROJECTDIR/taxasummary/absolutecounts -L 1,2,3,4,5,6,7 -a
+
+
+# Based on information found on qiime forums, attempting to downgrade matlab to fix an issue:
+# sudo pip install 'matplotlib==1.4.3'
+echo -e '\n--------------------------- STEP #2-12 ---------------------------'
+echo 'Baseline Time (real	0m1.850s)'
+echo 'summarize_taxa_through_plots.py is now running ...'
+date +%r
+time summarize_taxa_through_plots.py -i $PROJECTDIR/rarefiedOTUtablereduced.biom -o $PROJECTDIR/taxasummaryplots/BySample -m $MAPPINGFILE -f -s
+
+echo -e '\n--------------------------- STEP #2-13 ---------------------------'
+echo 'Baseline Time (real	0m1.850s)'
+echo 'compute_core_microbiome.py is now running ...'
+date +%r
+time compute_core_microbiome.py -i $PROJECTDIR/rarefiedOTUtablereduced.biom -o $PROJECTDIR/CoreMicrobiome/AllSamples
+
+### Quality metrics
+echo -e '\n--------------------------- Step #2-14 ---------------------------'
+echo 'Checking quality metrics of joined reads (BASELINE TIME: real 22m48.680s)'
+date +%r
+usearch8.0.1 -fastq_eestats $USEARCHDIR/merged.fastq -output $USEARCHDIR/mergedfastqeestats.txt
+echo -e "\n*** EEstats on read 2 COMPLETE ***"
+
+
+
+echo -e '\n\n'
+echo '#############################################################'
+echo "#####          Analyst's Attention is Required          #####"
+echo '#############################################################'
+
+}
+
+echo -e '\n**** Analyst must review output.\n'
+
+read -p "Hit enter when ready to tar and gzip the entire output: " 
+
+tar -zcvf $PROJECTDIR.tar.gz $PROJECTDIR
+
+
