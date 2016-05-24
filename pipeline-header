@@ -1,0 +1,319 @@
+#!/bin/bash
+echo -e " \t \xE2\x98\xA0 \xE2\x98\xA0 \xE2\x98\xA0 Beginning analysis of 16S rRNA prok data \xE2\x98\xA0 \xE2\x98\xA0 \xE2\x98\xA0"
+#This is a paired end workflow for the prokaryotic primers CAGCMGCCGCGGTAA and TACNVGGGTATCTAATCC that uses usearch for to merge reads and length filters based on read quality before merging
+#You will need to enter the Dataset name and your name before running the analysis.
+
+function checkQIIME {
+	print_qiime_config.py | grep "QIIME library version" | awk '{$1=$1}1'
+	if [ $? -ne 0 ]; then
+		echo -e "\xE2\x98\xA0 \xE2\x98\xA0 \xE2\x98\xA0 No QIIME installation found \xE2\x98\xA0 \xE2\x98\xA0 \xE2\x98\xA0"
+	fi
+}
+checkQIIME
+
+DATASET_NAME=Bell.12.21.2015
+MY_NAME=BillyFournier
+
+
+
+# DATASTORAGEDIR: PATH to the Raw Data you are analysing on the Storage drive
+# WORKDIR: PATH to "your" Analysis director EXAMPLE: $HOME/Analysis/YourName
+# PROJECTDIR: PATH to Project directory EXAMPLE: $WORKDIR/DataSetName_TodaysDate
+# DRIVE5STORAGE: PATH to Drive5 scripts
+# PYTHONSTORAGE: PATH to python scripts
+function setVariables {
+	DATE=$(date +"%m.%d.%Y")
+	DATASTORAGEDIR=/media/STORAGE/DATA_SETS/$DATASET_NAME
+	WORKDIR=$HOME/Analysis/$MY_NAME
+	#PROJECTDIR=$WORKDIR/"$DATASET_NAME"_$DATE
+PROJECTDIR=$WORKDIR/testing123
+	DATADIR=$PROJECTDIR/DATA
+	USEARCHDIR=$PROJECTDIR/Usearch_Output 
+	DRIVE5STORAGE=/media/STORAGE/drive5
+	PYTHONSTORAGE=/media/STORAGE/python
+	SCRIPTSDIR=$PROJECTDIR/scripts
+}
+echo -e 'Setting up Variables'
+setVariables
+
+# Important to not use any spaces
+mkdir -p {"$WORKDIR","$PROJECTDIR","$DATADIR","$USEARCHDIR","$SCRIPTSDIR"}
+
+#mkdir -p $WORKDIR
+#mkdir -p $PROJECTDIR
+#mkdir -p $DATADIR
+#mkdir -p $USEARCHDIR
+#mkdir -p $SCRIPTSDIR
+
+####  PIPLELINE LOG file setup  ####
+LOGFILE="$PROJECTDIR/pipeline.log"
+touch $LOGFILE
+exec >  >(tee $LOGFILE)
+exec 2>&1
+echo Log Start -- $(date +%r)
+
+
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+
+
+
+#if [ $? -ne 0 ]; then
+#fi
+
+
+# Checking to be sure files are available
+function verifyDrive5 {
+	find $DRIVE5STORAGE -name 'uc2otutab_mod.py' | grep . > /dev/null
+	if [ $? -ne 0 ]; then
+		echo 'uc2otutab_mod.py not found'
+		exit 1
+	fi
+	
+	find $DRIVE5STORAGE -name 'fasta_number.py' | grep . > /dev/null
+	if [ $? -ne 0 ]; then
+		echo 'fasta_number.py not found'
+		wget -P $SCRIPTSDIR drive5.com/python/python_scripts.tar.gz
+		tar -zxvf $SCRIPTSDIR/python_scripts.tar.gz
+		exit 1
+	fi
+
+	find $DRIVE5STORAGE -name 'progress.py' | grep . > /dev/null
+	if [ $? -ne 0 ]; then
+		echo 'progress.py not found'
+		exit 1
+	fi
+	find $DRIVE5STORAGE -name 'fasta.py' | grep . > /dev/null
+	if [ $? -ne 0 ]; then
+		echo 'fasta.py not found'
+		exit 1
+	fi
+	find $DRIVE5STORAGE -name 'die.py' | grep . > /dev/null
+	if [ $? -ne 0 ]; then
+		echo 'die.py not found'
+		exit 1
+	fi
+	find $DRIVE5STORAGE -name 'uc.py' | grep . > /dev/null
+	if [ $? -ne 0 ]; then
+		echo 'uc.py not found'
+		exit 1
+	fi
+	echo -e "--- All Drive5 files found: \xE2\x9C\x93"
+}
+verifyDrive5
+
+function copyDrive5 {
+	find $DRIVE5STORAGE -type f -name 'uc2otutab_mod.py' -exec cp {} $SCRIPTSDIR/ \;
+	find $DRIVE5STORAGE -type f -name 'fasta_number.py' -exec cp {} $SCRIPTSDIR/ \;
+	find $DRIVE5STORAGE -type f -name 'progress.py' -exec cp {} $SCRIPTSDIR/ \;
+	find $DRIVE5STORAGE -type f -name 'fasta.py' -exec cp {} $SCRIPTSDIR/ \;
+	find $DRIVE5STORAGE -type f -name 'die.py' -exec cp {} $SCRIPTSDIR/ \;
+	find $DRIVE5STORAGE -type f -name 'uc.py' -exec cp {} $SCRIPTSDIR/ \;
+}
+copyDrive5
+
+function checkPythonScripts {
+	find $PYTHONSTORAGE -name 'remove_unused_barcodes.py' | grep . > /dev/null
+	if [ $? -ne 0 ]; then
+		echo -e "remove_unused_barcodes.py not found. \xE2\x98\xA0 \xE2\x98\xA0 \xE2\x98\xA0"
+		exit 1
+	fi		
+	find $PYTHONSTORAGE -name 'fastqCombinePairedEnd.py' | grep . > /dev/null
+	if [ $? -ne 0 ]; then
+		echo 'fastqCombinePairedEnd.py not found'
+		exit 1
+	fi		
+	echo -e "--- All Python files found: \xE2\x9C\x93"
+}
+checkPythonScripts
+
+function copyPythonScripts {
+	find $PYTHONSTORAGE -type f -name 'remove_unused_barcodes.py' -exec cp {} $SCRIPTSDIR/ \;
+	find $PYTHONSTORAGE -type f -name 'fastqCombinePairedEnd.py' -exec cp {} $SCRIPTSDIR/ \;
+}
+copyPythonScripts
+
+
+#find /media/STORAGE/DATA_SETS -type f -name 'ReadMe.txt' -exec cp {} $PROJECTDIR/ \;
+#find $DATASTORAGEDIR -type f -name 'primers.fasta' -exec cp {} $DATADIR/ \;
+
+
+
+# Finding gold.fasta
+function setGoldFasta {
+	if [ "$(find /media/STORAGE/drive5 -type f -name '*gold.fasta*')" ]; then
+		GOLDFASTA=`find /media/STORAGE/drive5 -type f -name '*gold.fasta*'`
+	else    
+		echo -e "gold.fasta not found \xE2\x98\xA0, \n Downloading gold.fasta"	
+		wget -O /media/STORAGE/drive5/gold.fasta -nc http://drive5.com/uchime/gold.fa
+		GOLDFASTA=`find /media/STORAGE/drive5 -type f -name '*gold.fasta*'`
+	fi
+	echo -e "--- Gold.fasta file  found: \xE2\x9C\x93"	
+}
+setGoldFasta
+
+# lanemask_in_1s_and_0s 
+function getLanemask {
+	find $PROJECTDIR -name lanemask_in_1s_and_0s > /dev/null 2>&1
+	if [ $? -ne 0 ]; then
+		wget --quiet -nc  -O $PROJECTDIR/lanemask_in_1s_and_0s https://github.com/billyfournier/.AgriLife/raw/master/lanemask_in_1s_and_0s
+	fi
+	echo -e "--- lanemask_in_1s_and_0s found: \xE2\x9C\x93"
+}
+getLanemask
+
+# 97_otus.fasta
+function get97Otus {
+	find /usr/local -name 97_otus.fasta | grep . > /dev/null 2>&1
+	if [ $? -ne 0 ]; then
+		echo "Could not find 97_otus.fasta"
+		exit 1
+	fi
+	echo -e "--- 97_otus.fasta file found \xE2\x9C\x93"
+}
+get97Otus
+
+####   NEED TO IDENTIFY FILES TO DO A PRE-CHECK On   ####
+#### 		ALSO NEED TO IDENTIFY FILES THAT CAN BE CLEANED AFTER USE	####
+	
+
+
+# merge_barcodes.py
+wget --quiet -nc -O $SCRIPTSDIR/merge_barcodes.py https://github.com/billyfournier/.AgriLife/raw/master/merge_barcodes.py
+find $PROJECTDIR -name merge_barcodes.py > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+	echo "Could not find merge_barcodes.py"
+	exit 1
+fi
+
+# 97_otu_taxonomy.txt
+find /usr/local -name 97_otu_taxonomy.txt | grep . > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+	echo "Could not find 97_otu_taxonomy.txt"
+	exit 1
+fi
+# rdp_classifier-2.2.jar
+find /usr/local -name rdp_classifier-2.2.jar | grep . > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+	echo "Could not find rdp_classifier-2.2.jar"
+	exit 1
+fi
+############
+
+printf '\n\n'
+sleep 1
+
+
+################################################
+# Copying index1 to the working data directory #
+################################################
+function copyData {
+	find $DATADIR -type f -name '*index1*' | grep . #> /dev/null
+	if [ $? -ne 0 ]; then
+		find $DATASTORAGEDIR -type f -name '*_I1_*' -exec cp {} $DATADIR/index1.fastq.gz \;
+		echo "index1 has been copied to $DATADIR"	
+	fi
+
+	find $DATADIR -type f -name '*index2*' | grep . #> /dev/null
+	if [ $? -ne 0 ]; then
+		find $DATASTORAGEDIR -type f -name '*_I2_*' -exec cp {} $DATADIR/index2.fastq.gz \;
+		echo "index2 has been copied to $DATADIR"	
+	fi
+
+	find $DATADIR -type f -name '*read1*' | grep . #> /dev/null
+	if [ $? -ne 0 ]; then
+		find $DATASTORAGEDIR -type f -name '*_R1_*' -exec cp {} $DATADIR/read1.fastq.gz \;
+		echo "read1 has been copied to $DATADIR"	
+	fi
+
+	find $DATADIR -type f -name '*read2*' | grep . #> /dev/null
+	if [ $? -ne 0 ]; then
+		find $DATASTORAGEDIR -maxdepth 1 -type f -name '*_R2_*' -exec cp {} $DATADIR/read2.fastq.gz \;		
+		echo "read2 has been copied to $DATADIR"	
+	fi
+}
+copyData
+
+exit 1
+if [ "$(find $DATADIR -type f -name '*index1*')" ]; then
+	echo ''    
+	echo "***WARNING: index1 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -type f -name '*_I1_*' -exec cp {} $DATADIR/index1.fastq.gz \;
+	echo ''    
+	echo "index1 has been copied to $DATADIR"
+fi
+################################################
+# Copying index2 to the working data directory #
+################################################
+if [ "$(find $DATADIR -type f -name '*index2*')" ]; then
+	echo ''    
+	echo "***WARNING: index2 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -type f -name '*_I2_*' -exec cp {} $DATADIR/index2.fastq.gz \;
+	echo ''    
+	echo "index2 has been copied to $DATADIR"
+fi
+###############################################
+# Copying read1 to the working data directory #
+###############################################
+if [ "$(find $DATADIR -type f -name '*read1*')" ]; then
+	echo ''    
+	echo "***WARNING: read1 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -maxdepth 1 -type f -name '*_R1_*' -exec cp {} $DATADIR/read1.fastq.gz \;
+	echo ''    
+	echo "read1 has been copied to $DATADIR"
+fi
+###############################################
+# Copying read2 to the working data directory #
+###############################################
+if [ "$(find $DATADIR -type f -name '*read2*')" ]; then
+	echo ''    
+	echo "***WARNING: read2 has already been copied to $DATADIR"
+else
+	find $DATASTORAGEDIR -maxdepth 1 -type f -name '*_R2_*' -exec cp {} $DATADIR/read2.fastq.gz \;
+	echo ''    
+	echo "read2 has been copied to $DATADIR"
+fi
+sleep 2
+
+##########################################################
+# Copying the mapping file to the working data directory #
+##########################################################
+if [ "$(find $DATADIR -type f -iname '*mapping*')" ]; then
+	echo ''  
+	MAPPINGFILE=`find $DATADIR -type f -iname '*mapping*'`  
+	echo "***WARNING: Mapping File has already been copied to $MAPPINGFILE"
+else	
+	find $DATASTORAGEDIR -type f -iname '*mapping*' -exec cp {} $DATADIR/ \;
+	MAPPINGFILE=`find $DATADIR -type f -iname '*mapping*'`
+	echo ''    
+	echo "Mapping File has been copied to $MAPPINGFILE"
+
+fi
+
+
+echo ''
+echo "Unzipping files in *** $DATADIR ***"
+gunzip $DATADIR/index1.fastq.gz
+echo "gunzip 1 of 4 COMPLETE"
+gunzip $DATADIR/index2.fastq.gz
+echo "gunzip 2 of 4 COMPLETE"
+gunzip $DATADIR/read1.fastq.gz
+echo "gunzip 3 of 4 COMPLETE"
+gunzip $DATADIR/read2.fastq.gz
+echo "gunzip 4 of 4 COMPLETE"
+
+########################################################################################
+########################################################################################
+########################################################################################
+
+# Start Steps Here
+
+
+time {
+
+}
